@@ -132,6 +132,22 @@ async def on_ready():
     print(f"Discord bot logged in as {client.user}.", flush=True)
     if AUTHORIZED_USER_ID:
         print(f"Only acting on messages from user ID {AUTHORIZED_USER_ID}.", flush=True)
+        # STARTUP NOTIFICATION (2026-07-28): "when its ready have the bot
+        # message the same discord channel that its ready" -- a DM to the
+        # authorized user directly (not a guess at which server channel),
+        # since the setup docs' primary interaction mode IS a DM with the
+        # bot. Best-effort: a failed DM (e.g. the user has DMs from this bot
+        # disabled) is logged, not fatal to startup.
+        try:
+            user = await client.fetch_user(int(AUTHORIZED_USER_ID))
+            await user.send(
+                "back online, bro -- upgraded: Claude Code tasks now stream "
+                "live progress as they work (not just a final summary), and "
+                "`claude code <task>` auto-continues your last conversation "
+                "in that project (use `claude code new: <task>` to start "
+                "fresh instead).")
+        except Exception as e:
+            print(f"(startup DM failed, non-fatal: {e})", flush=True)
     else:
         print("WARNING: DISCORD_AUTHORIZED_USER_ID is not set -- every message will be ignored.", flush=True)
 
