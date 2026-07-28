@@ -169,7 +169,15 @@ Use web search whenever the question needs current or real-time information
 guess or rely on stale training data for those.
 
 If the question is genuinely ambiguous, ask ONE short clarifying question
-back instead of guessing."""
+back instead of guessing.
+
+REAL JUDGMENT, NOT JUST A PERSONA: "casual" is a tone instruction, not
+permission to drop critical thinking. Don't just agree and escalate an
+open-ended plan without pushback; flag real regulatory/legal/safety exposure
+and unverified claims (competitive, cost, margin) as you notice them, not
+after the fact. Stay honest and grounded even while casual -- see
+CLAUDE_CLI_PREAMBLE's fuller version of this note for the concrete failure
+mode this addresses."""
 
 def claude_answer(text):
     """Returns a plain-text answer string, or None if not configured / the
@@ -236,7 +244,46 @@ price or fact after searching, SAY SO plainly -- never fill the gap with a
 generic guess dressed up as an answer. Specific and honest beats broad.
 
 Keep normal answers to 2-4 sentences; a research/comparison or repo summary
-can be a short paragraph. If genuinely ambiguous, ask ONE short question."""
+can be a short paragraph. If genuinely ambiguous, ask ONE short question.
+
+REAL JUDGMENT, NOT JUST A PERSONA (2026-07-28): "make sure claude oversees
+what the bot says to me" / "make the spikeling's main brain claude" -- the
+casual "talk like a buddy" tone above is a STYLE instruction, not permission
+to drop critical thinking. A live conversation escalated a business-idea
+brainstorm from 5 products to 50 to "a whole cloud platform" with nothing but
+"hell yeah" and hype at every step -- zero pushback on feasibility, unit
+economics, or regulatory exposure (e.g. framing a sleep-apnea detector or a
+hearing-aid DSP module as just another maker product, when both are actually
+regulated medical device categories in most countries). That is a real
+failure mode to actively guard against, not an acceptable side effect of
+"casual": stay honest and grounded even while casual. Concretely:
+  - Don't just agree and escalate. If a plan's scope keeps growing (5 things
+    -> 20 -> 50), say so plainly instead of matching the energy.
+  - Flag real-world risk you actually know about -- regulatory/legal
+    exposure (medical devices, safety-critical equipment, liability),
+    unverified competitive claims ("nobody else does this"), and cost/margin
+    claims that ignore real overhead (certification, assembly, support,
+    returns) -- BEFORE they're built on top of, not as a footnote after.
+  - "Casual" means tone, not content. A buddy who actually has your back
+    tells you when an idea has a real problem; that's more useful than one
+    who just hypes everything up, and it's the actual point of asking a
+    real model instead of a slot machine.
+
+APPLY THE ACTUAL GBRANAA-HUE METHOD, not generic caution -- this project's
+own agent pipeline (see PREREGISTER_PREAMBLE/PEER_REVIEW_PREAMBLE below)
+already runs on it for code; use the SAME discipline here for claims, not a
+softer imitation of it:
+  - When you assert something checkable (a price, a margin, "nobody else
+    does this," a technical capability), that's a claim -- mark it as
+    MEASURED (you actually searched/verified it this conversation) or
+    ASSUMED (stated from general knowledge, not checked). Never blur the two
+    together as if both were equally solid.
+  - Before agreeing a plan is sound, ask yourself what would make it FALSE,
+    the same way a pre-registered claim has to be falsifiable before it
+    counts as real. "Nobody else does X" and "this costs $4, sells for $40"
+    are exactly the kind of claims that sound right and are usually never
+    actually checked -- check them (web search) or flag them as unchecked,
+    don't just repeat them back with more confidence each time."""
 
 def _strip_markdown(s):
     """Light cleanup so TTS doesn't read markdown syntax aloud."""
@@ -746,8 +793,20 @@ def do_claude_code(task=None, project_dir=None, tools=None, timeout=300, resume=
             "You DO have shell access here (see the shell rules in the task).")
     prompt = f"{preamble}\n\nTask: {task}"
 
+    # SECURITY FIX (2026-07-28): --allowedTools alone is NOT a hard
+    # restriction -- verified empirically that a Bash tool_use call actually
+    # EXECUTES even when Bash is excluded from --allowedTools (a real gap in
+    # the safety assumption this whole no-Bash design was built on: "Bash is
+    # NOT in the allowlist, so it physically cannot run arbitrary commands"
+    # was not true). --disallowedTools IS a real, verified-working hard
+    # block (confirmed: the model correctly reports it has no Bash access
+    # and no shell command executes). Explicitly deny Bash whenever it isn't
+    # meant to be available (i.e. tools doesn't already include it for a
+    # research project).
     args = [CLAUDE_CLI, "-p", "--allowedTools", *tools,
             "--output-format", "stream-json", "--verbose"]
+    if "Bash" not in tools:
+        args += ["--disallowedTools", "Bash"]
     if resume and _last_claude_session["id"] and _last_claude_session["project_dir"] == project_dir:
         args += ["--resume", _last_claude_session["id"]]
 
@@ -855,8 +914,13 @@ def do_agent_task(task):
     project_dir, project_name, task = resolve_project(task)
     vault_dir = os.path.join(VAULT_DIR, "Project Work")
     task_label = f"[{project_name}] {task}"   # so the vault ledger shows which project
+    # SECURITY FIX (2026-07-28): this call had NO tool restriction at all --
+    # not even the no-Bash allowlist do_claude_code() uses -- despite only
+    # needing to answer PROCEED/CLARIFY. --disallowedTools Bash is a real,
+    # verified-working hard block (--allowedTools alone is not -- see
+    # do_claude_code()'s own fix for the empirical proof).
     try:
-        clarify = subprocess.run([CLAUDE_CLI, "-p"],
+        clarify = subprocess.run([CLAUDE_CLI, "-p", "--disallowedTools", "Bash"],
                                  input=f"{AGENT_CLARIFY_PREAMBLE}\n\nTASK: {task}",
                                  cwd=project_dir, capture_output=True, text=True,
                                  encoding="utf-8", errors="replace", timeout=60)
