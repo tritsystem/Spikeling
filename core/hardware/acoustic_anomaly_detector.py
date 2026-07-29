@@ -107,6 +107,39 @@ class AcousticAnomalyDetector(AcousticSensorAdapter):
     def value_range(self):
         return (-self.deviation_scale, self.deviation_scale)
 
+    def save_calibration(self, path: str) -> None:
+        """Persist the calibrated baseline to disk (JSON) so a real
+        calibration session's result survives past the process that ran
+        it -- tuning against a real machine's real ambient sound is real
+        work, not something to redo every run."""
+        if not self.is_calibrated:
+            raise RuntimeError("save_calibration() called before calibrate() -- nothing to save.")
+        import json
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump({
+                "num_neurons": self.encoder.num_neurons,
+                "sample_rate": self.sample_rate,
+                "chunk_ms": self.chunk_samples / float(self.sample_rate) * 1000.0,
+                "baseline_mean": self._baseline_mean.tolist(),
+                "baseline_std": self._baseline_std.tolist(),
+            }, f, indent=2)
+
+    def load_calibration(self, path: str) -> tuple:
+        """Loads a previously-saved baseline. Refuses to load one computed
+        with a different num_neurons -- the per-band deviation math is only
+        meaningful if the band count matches this instance's encoder."""
+        import json
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if data["num_neurons"] != self.encoder.num_neurons:
+            raise ValueError(
+                f"calibration file has {data['num_neurons']} bands, this detector has "
+                f"{self.encoder.num_neurons} -- they must match, or the per-band deviation "
+                f"math is comparing bands that don't correspond to the same frequencies.")
+        self._baseline_mean = np.array(data["baseline_mean"])
+        self._baseline_std = np.array(data["baseline_std"])
+        return self._baseline_mean.tolist(), self._baseline_std.tolist()
+
     def anomaly_score(self, deviation: list = None) -> float:
         """A single 0+ scalar summarizing how anomalous the CURRENT moment
         is (RMS of the per-band z-score deviation) -- convenience for a

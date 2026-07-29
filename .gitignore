@@ -57,3 +57,4 @@ test_result*.txt
 # node deps for the react-render/screenshot pipeline (package.json declares them)
 node_modules/
 *.log.err
+acoustic_baseline*.json

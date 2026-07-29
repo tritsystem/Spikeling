@@ -164,6 +164,49 @@ def main():
     check("a sustained real spectral anomaly fires the network's ANOMALY action end to end",
           len(fired) > 0)
 
+    # ── save/load calibration round-trip (real file I/O, real tempfile)
+    import json
+    import os
+    import tempfile
+    tmp_path = os.path.join(tempfile.gettempdir(), "test_acoustic_baseline.json")
+    det.save_calibration(tmp_path)
+    check("save_calibration() writes a real JSON file", os.path.exists(tmp_path))
+    with open(tmp_path) as f:
+        saved = json.load(f)
+    check("the saved calibration's baseline exactly matches what calibrate() computed",
+          saved["baseline_mean"] == det._baseline_mean.tolist())
+
+    det3 = AcousticAnomalyDetector(rt, sample_rate=SAMPLE_RATE, num_neurons=8)
+    loaded_mean, loaded_std = det3.load_calibration(tmp_path)
+    check("load_calibration() restores the exact baseline into a fresh, never-calibrated instance",
+          loaded_mean == mean and loaded_std == std)
+    check("is_calibrated becomes True after loading a saved baseline (not just after a live calibrate() run)",
+          det3.is_calibrated)
+
+    wrong_bands = AcousticAnomalyDetector(rt, sample_rate=SAMPLE_RATE, num_neurons=4)
+    raised_mismatch = False
+    try:
+        wrong_bands.load_calibration(tmp_path)
+    except ValueError:
+        raised_mismatch = True
+    check("loading a calibration with a mismatched band count is refused, not silently misapplied",
+          raised_mismatch)
+    os.remove(tmp_path)
+
+    # ── real calibration session against THIS machine, saved earlier via
+    # calibrate_acoustic_baseline.py -- sanity-check that real artifact is
+    # actually loadable and well-formed, not just that save/load works on
+    # freshly-generated data
+    real_calib_path = "acoustic_baseline.json"
+    if os.path.exists(real_calib_path):
+        real_det = AcousticAnomalyDetector(rt, sample_rate=16000, num_neurons=16)
+        real_mean, real_std = real_det.load_calibration(real_calib_path)
+        check("the real calibration file saved from this machine's actual ambient sound loads cleanly",
+              len(real_mean) == 16 and all(s > 0 for s in real_std))
+    else:
+        skip("loading the real saved calibration from this machine",
+             "acoustic_baseline.json not present -- run calibrate_acoustic_baseline.py first")
+
     # ── real hardware smoke check (same honesty pattern as
     # test_acoustic_adapter.py) -- skip cleanly if no real mic exists
     try:
