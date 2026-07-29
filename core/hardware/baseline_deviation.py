@@ -30,11 +30,34 @@ class BaselineDeviation:
     N channels (acoustic frequency bands, environmental sensors) the same
     way -- every reading is just a list[float] of a fixed length."""
 
-    def __init__(self, smoothing_alpha: float = 0.3):
+    def __init__(self, smoothing_alpha: float = 0.3, max_channel_z: float = None):
         """smoothing_alpha: weight given to each NEW reading in the
         exponential moving average smoothed_score() (0 < a <= 1; higher =
-        tracks recent readings faster but smooths less)."""
+        tracks recent readings faster but smooths less).
+
+        max_channel_z: optional cap on any single channel's contribution
+        to score()/smoothed_score() (deviation() itself is never clipped
+        -- see below). Defaults to None (no clipping, the original
+        behavior every existing caller/test relies on). WHY THIS EXISTS --
+        a REAL measured failure, not a hypothetical: system_telemetry_
+        adapter.py's disk_write_bps channel calibrated with zero real
+        writes in every sample (std floored to 1e-6), then a genuine real
+        write of a few hundred KB/s during a live test produced a
+        deviation() z-score in the billions and dragged score()'s RMS
+        aggregate up with it -- mathematically correct, but useless as a
+        "how stressed is this machine" number. Any channel that happens to
+        be perfectly flat during a short real calibration window (common
+        for coarse-precision or bursty real sensors, not just synthetic
+        data) is one real reading away from this. Capping each channel's
+        z BEFORE the aggregate keeps the aggregate interpretable regardless
+        of which channel is degenerate, while deviation() stays unclipped
+        so a caller inspecting per-channel detail (e.g. diagnose() in
+        system_telemetry_adapter.py) still sees the true, uncapped
+        magnitude -- that raw number IS meaningful information ("this
+        channel deviated far past anything seen during calibration"),
+        just not something the aggregate should be dominated by."""
         self.smoothing_alpha = smoothing_alpha
+        self.max_channel_z = max_channel_z
         self._mean = None
         self._std = None
         self._smoothed_score = None
@@ -80,7 +103,11 @@ class BaselineDeviation:
             deviation = self.deviation(reading)
         if not deviation:
             return 0.0
-        return float(np.sqrt(np.mean(np.square(deviation))))
+        d = deviation
+        if self.max_channel_z is not None:
+            cap = self.max_channel_z
+            d = [max(-cap, min(cap, x)) for x in d]
+        return float(np.sqrt(np.mean(np.square(d))))
 
     def smoothed_score(self, reading: list = None, deviation: list = None) -> float:
         """Exponential moving average of score() -- see the module
@@ -99,6 +126,43 @@ class BaselineDeviation:
 
     def reset_smoothing(self) -> None:
         self._smoothed_score = None
+
+    def adapt(self, reading: list, rate: float = 0.01, gate_threshold: float = 2.0) -> bool:
+        """Closed-loop homeostatic baseline drift-tracking: nudges the
+        calibrated mean/std toward `reading`, but ONLY when the reading is
+        already close to baseline (score(reading) <= gate_threshold).
+        Returns True if the baseline was actually adapted, False if gated
+        off (not calibrated yet, or the reading is a real deviation).
+
+        WHY GATED, NOT A PLAIN EMA: an always-on EMA toward every new
+        reading would let a genuine, ongoing anomaly slowly get absorbed
+        into "normal" -- exactly the failure mode a static one-time
+        calibration doesn't have, trading one bug for a worse one. Gating
+        on the reading's OWN score means only readings that already match
+        baseline get to move it, so real deviations stay visible as
+        deviations no matter how long they persist.
+
+        This is closed-loop feedback (measure -> compare to a target ->
+        correct), the same class of mechanism that in this codebase's own
+        prior research decisively beat both a static baseline and blind
+        periodic ("breathing") adjustment for recovering a stuck LIF
+        neuron -- see the gbranaa4-hue portfolio's breathing-modulation
+        finding. That result was about recovery SPEED for one stuck
+        neuron; this is a different job (long-run baseline drift for a
+        continuously-running monitor), so the gate is new here, not
+        carried over -- but the core principle (closed-loop beats blind
+        schedule) is the same one that was actually measured to hold."""
+        if not self.is_calibrated:
+            return False
+        arr = np.array(reading, dtype=np.float64)
+        if self.score(reading=reading) > gate_threshold:
+            return False
+        self._mean = (1.0 - rate) * self._mean + rate * arr
+        diff = arr - self._mean
+        var = np.maximum(self._std, 1e-6) ** 2
+        var = (1.0 - rate) * var + rate * (diff ** 2)
+        self._std = np.maximum(np.sqrt(var), 1e-6)
+        return True
 
     def save(self, path: str) -> None:
         if not self.is_calibrated:

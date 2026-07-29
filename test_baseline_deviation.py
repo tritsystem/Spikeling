@@ -117,6 +117,64 @@ def main():
     check("calibrate() resets stale smoothing history automatically",
           bd._smoothed_score is None)
 
+    # ── adapt() -- gated homeostatic drift-tracking ──────────────────────
+    bd4 = BaselineDeviation()
+    check("adapt() before calibration is a no-op, returns False (nothing to adapt toward)",
+          bd4.adapt([5.0]) is False)
+
+    bd4.calibrate([[10.0], [10.0], [10.0], [10.0], [10.0]])   # dead-flat baseline (std floored to 1e-6)
+    mean_before = bd4._mean[0]
+    adapted = bd4.adapt([10.000001], rate=0.5, gate_threshold=2.0)
+    check("adapt() on a reading that already matches baseline returns True (gate passes)",
+          adapted is True)
+    check("a matching reading nudges the mean toward it (real movement, not a no-op)",
+          bd4._mean[0] != mean_before)
+
+    bd5 = BaselineDeviation()
+    bd5.calibrate([[v] for v in [9.8, 10.2, 9.9, 10.1, 10.0]])
+    mean_before5 = bd5._mean[0]
+    real_deviation_reading = [mean_before5 + 50 * max(bd5._std[0], 1e-6)]   # an unmistakable real spike
+    gated_out = bd5.adapt(real_deviation_reading, rate=0.9, gate_threshold=2.0)
+    check("adapt() on a reading far past gate_threshold returns False (real deviation, not absorbed)",
+          gated_out is False)
+    check("a gated-out reading leaves the baseline mean completely unchanged",
+          bd5._mean[0] == mean_before5)
+
+    # closed-loop drift-tracking over many ticks: a baseline that has
+    # genuinely shifted (e.g. a new background service raising idle CPU%)
+    # should be tracked by repeated adapt() calls at matching readings,
+    # the way a one-time calibrate() never would be
+    bd6 = BaselineDeviation()
+    bd6.calibrate([[5.0], [5.1], [4.9], [5.0], [5.05]])   # old normal ~5.0
+    new_normal = 5.0
+    drift_target = 8.0   # the machine's real normal has shifted to ~8.0
+    for step in range(400):
+        new_normal += (drift_target - new_normal) * 0.02   # the real world drifts gradually, not instantly
+        bd6.adapt([new_normal], rate=0.05, gate_threshold=3.0)
+    check("repeated adapt() calls track a genuine gradual baseline drift toward the new real normal",
+          abs(bd6._mean[0] - drift_target) < 0.5)
+
+    # ── max_channel_z -- regression test for a REAL failure caught live in
+    # system_telemetry_adapter.py: a channel perfectly flat during
+    # calibration (std floored to 1e-6) produced a billions-scale score
+    # from one genuine real reading.
+    bd7 = BaselineDeviation(max_channel_z=None)   # default: unclipped, matches every prior test above
+    bd7.calibrate([[10.0, 0.0], [10.0, 0.0], [10.0, 0.0]])   # channel 1 is perfectly flat (like idle disk I/O)
+    runaway_reading = [10.0, 500.0]   # a real, modest jump on the flat channel
+    check("without max_channel_z, a flat-calibrated channel's score explodes (reproduces the real bug)",
+          bd7.score(runaway_reading) > 1e6)
+    check("deviation() itself is enormous on that channel too (this is the raw, honest z, not the bug)",
+          abs(bd7.deviation(runaway_reading)[1]) > 1e6)
+
+    bd8 = BaselineDeviation(max_channel_z=20.0)
+    bd8.calibrate([[10.0, 0.0], [10.0, 0.0], [10.0, 0.0]])
+    check("with max_channel_z set, the SAME runaway reading's score stays bounded and interpretable",
+          bd8.score(runaway_reading) < 50.0)
+    check("max_channel_z does NOT touch deviation() -- the raw per-channel detail is still the true huge number",
+          abs(bd8.deviation(runaway_reading)[1]) > 1e6)
+    check("a channel that's genuinely NOT degenerate is unaffected by max_channel_z",
+          abs(bd8.score([10.0 + 0.0, 0.0]) - bd7.score([10.0, 0.0])) < 1e-6)
+
     print("\n" + "-" * 42)
     print(f"  {_pass} passed, {_fail} FAILED")
     print("-" * 42 + "\n")
