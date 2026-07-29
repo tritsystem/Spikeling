@@ -42,15 +42,25 @@ from .acoustic_adapter import AcousticSensorAdapter
 
 
 class AcousticAnomalyDetector(AcousticSensorAdapter):
-    def __init__(self, *args, deviation_scale: float = 4.0, **kwargs):
+    def __init__(self, *args, deviation_scale: float = 4.0,
+                 smoothing_alpha: float = 0.3, **kwargs):
         """deviation_scale: how many std-devs of spectral deviation maps to
         the encoder's full [-1, 1] range -- lower = more sensitive
         (smaller deviations still saturate the encoder), higher = more
-        conservative."""
+        conservative.
+
+        smoothing_alpha: weight given to each NEW reading in the
+        exponential moving average smoothed_anomaly_score() (0 < a <= 1;
+        higher = tracks recent readings faster but smooths less, lower =
+        smoother but slower to respond). Default 0.3 chosen from a real
+        measured need, not a guess -- see smoothed_anomaly_score()'s own
+        docstring for the actual numbers that motivated this."""
         super().__init__(*args, **kwargs)
         self.deviation_scale = deviation_scale
+        self.smoothing_alpha = smoothing_alpha
         self._baseline_mean = None
         self._baseline_std = None
+        self._smoothed_score = None
 
     @property
     def is_calibrated(self) -> bool:
@@ -91,6 +101,7 @@ class AcousticAnomalyDetector(AcousticSensorAdapter):
         arr = np.array(spectra)
         self._baseline_mean = arr.mean(axis=0)
         self._baseline_std = np.maximum(arr.std(axis=0), 1e-6)   # floor avoids div-by-zero on a silent band
+        self.reset_smoothing()   # old smoothed history is meaningless against a new baseline
         return self._baseline_mean.tolist(), self._baseline_std.tolist()
 
     def read_raw(self) -> list:
@@ -138,6 +149,7 @@ class AcousticAnomalyDetector(AcousticSensorAdapter):
                 f"math is comparing bands that don't correspond to the same frequencies.")
         self._baseline_mean = np.array(data["baseline_mean"])
         self._baseline_std = np.array(data["baseline_std"])
+        self.reset_smoothing()   # old smoothed history is meaningless against a new baseline
         return self._baseline_mean.tolist(), self._baseline_std.tolist()
 
     def anomaly_score(self, deviation: list = None) -> float:
@@ -153,3 +165,37 @@ class AcousticAnomalyDetector(AcousticSensorAdapter):
         if not deviation:
             return 0.0
         return float(np.sqrt(np.mean(np.square(deviation))))
+
+    def smoothed_anomaly_score(self, deviation: list = None) -> float:
+        """Exponential moving average of anomaly_score() -- MOTIVATED BY A
+        REAL MEASUREMENT, not a hypothetical: stress_test_fan_ramp.py's
+        actual run showed instantaneous anomaly_score() swinging
+        0.67-9.36 within a single sustained test window, meaning a raw
+        single-reading threshold either misses real anomalies (set high)
+        or false-alarms on ordinary variance (set low -- the idle
+        calibration session itself had one 3.24 outlier with nothing
+        happening at all). Smoothing consecutive readings is what makes a
+        threshold meaningful for continuous monitoring.
+
+        Each call both updates AND returns the running smoothed value --
+        call this once per real tick in a monitoring loop, not
+        interchangeably with anomaly_score() within the same loop (mixing
+        them would double-count some readings into the average and skip
+        others). Resets automatically on calibrate()/load_calibration()
+        since old smoothed history is meaningless against a new baseline;
+        call reset_smoothing() manually for any other reason to discard
+        accumulated history (e.g. after a known one-off loud event you
+        don't want lingering in the average)."""
+        raw = self.anomaly_score(deviation)
+        if self._smoothed_score is None:
+            self._smoothed_score = raw
+        else:
+            a = self.smoothing_alpha
+            self._smoothed_score = a * raw + (1.0 - a) * self._smoothed_score
+        return self._smoothed_score
+
+    def reset_smoothing(self) -> None:
+        """Discards the running smoothed score -- the next
+        smoothed_anomaly_score() call starts fresh from that single
+        reading instead of blending in stale history."""
+        self._smoothed_score = None

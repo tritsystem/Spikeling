@@ -148,6 +148,48 @@ def main():
     check("a genuinely different sound (a tone absent from the noise baseline) scores as a real, larger deviation",
           anomaly_score > normal_score * 3)
 
+    # ── smoothed_anomaly_score() -- EMA over consecutive readings, added
+    # after a real stress test showed instantaneous anomaly_score()
+    # swinging widely within a single sustained condition
+    smooth_det = AcousticAnomalyDetector(rt, sample_rate=SAMPLE_RATE, num_neurons=4,
+                                          smoothing_alpha=0.5)
+    smooth_det._stream = FakeStream(lambda n: white_noise(n))
+    smooth_det.calibrate(duration_s=0.5)
+
+    check("smoothed_anomaly_score() starts at exactly the first reading (no history to blend yet)",
+          smooth_det._smoothed_score is None)
+    first = smooth_det.smoothed_anomaly_score(deviation=[2.0, 2.0, 2.0, 2.0])
+    check("...and the first call's return value equals that first raw score",
+          abs(first - 2.0) < 1e-9)
+
+    second = smooth_det.smoothed_anomaly_score(deviation=[0.0, 0.0, 0.0, 0.0])
+    # EMA formula with alpha=0.5: 0.5*raw + 0.5*prev = 0.5*0 + 0.5*2.0 = 1.0
+    check("a subsequent call blends the new raw reading with the running average per the EMA formula (alpha=0.5)",
+          abs(second - 1.0) < 1e-9)
+
+    check("reset_smoothing() clears the running average back to 'no history'",
+          (smooth_det.reset_smoothing(), smooth_det._smoothed_score)[1] is None)
+
+    # the actual practical justification: smoothing genuinely reduces
+    # variance vs. the raw score on the same noisy sequence of readings
+    noisy_readings = [1.0, 8.0, 0.5, 9.0, 0.6, 7.5, 0.8, 8.5, 0.7, 9.2]
+    smooth_det.reset_smoothing()
+    smoothed_sequence = [smooth_det.smoothed_anomaly_score(deviation=[v] * 4) for v in noisy_readings]
+    import statistics
+    check("a smoothed sequence has meaningfully lower variance than the raw noisy readings it was built from",
+          statistics.pvariance(smoothed_sequence) < statistics.pvariance(noisy_readings) * 0.5)
+
+    # calibrate()/load_calibration() must reset stale smoothing history --
+    # otherwise a fresh baseline's early readings get blended with
+    # deviation numbers computed against the OLD baseline
+    smooth_det.smoothed_anomaly_score(deviation=[5.0, 5.0, 5.0, 5.0])
+    check("smoothing history exists before a recalibration",
+          smooth_det._smoothed_score is not None)
+    smooth_det._stream = FakeStream(lambda n: white_noise(n))
+    smooth_det.calibrate(duration_s=0.5)
+    check("calibrate() automatically resets stale smoothing history from the old baseline",
+          smooth_det._smoothed_score is None)
+
     # ── end to end: a real anomalous reading fires the network's action
     fired = []
     rt2 = SpikelingRuntime(SpikelingParser().parse(TEST_NET))
