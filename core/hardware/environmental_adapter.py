@@ -16,11 +16,21 @@ and CO2 (400..5000 ppm) have nothing in common as raw numbers. read_raw()
 normalizes each channel to a shared 0..1 scale itself (per channel's own
 known range) BEFORE handing off, so the base class's single-value_range
 normalize() still applies correctly on top.
+
+RELATIONAL SCORING: read_raw()'s fixed-physical-range normalization
+answers "how close to the sensor's absolute max" -- a genuinely different
+question from "is this unusual FOR THIS ROOM" (a server closet and a
+bedroom have very different normal CO2/temperature, same reasoning
+acoustic_anomaly_detector.py's per-install baseline uses). calibrate()
++ stress_score()/smoothed_stress_score() add that second question via the
+shared BaselineDeviation primitive, alongside the unchanged fixed-range
+read_raw().
 """
 
 import random
 
 from .sensor_adapter import SensorAdapter
+from .baseline_deviation import BaselineDeviation
 
 
 class SimulatedEnvironmentalSource:
@@ -71,14 +81,23 @@ class EnvironmentalSensorAdapter(SensorAdapter):
         "co2_ppm":       (400.0, 5000.0),
     }
 
-    def __init__(self, *args, source=None, **kwargs):
+    def __init__(self, *args, source=None, smoothing_alpha: float = 0.3, **kwargs):
         super().__init__(*args, **kwargs)
         self.source = source or SimulatedEnvironmentalSource()
+        self._deviation = BaselineDeviation(smoothing_alpha=smoothing_alpha)
+        self._active_channels = list(self.CHANNEL_RANGES)   # default order; calibrate() may narrow this
 
     @property
     def value_range(self):
         # read_raw() already normalizes every channel to 0..1 itself
         return (0.0, 1.0)
+
+    def _channel_reading(self, readings: dict) -> list:
+        """The subset of CHANNEL_RANGES actually present in `readings`, in
+        a fixed, consistent order -- shared by read_raw() (normalized) and
+        the calibration path (raw) so both always agree on which channel
+        index means what."""
+        return [name for name in self.CHANNEL_RANGES if name in readings]
 
     def read_raw(self) -> list:
         readings = self.source.read()
@@ -90,3 +109,47 @@ class EnvironmentalSensorAdapter(SensorAdapter):
             v = float(readings[name])
             out.append(max(0.0, min(1.0, (v - lo) / span)) if span > 0 else 0.0)
         return out
+
+    def calibrate(self, n_samples: int = 50) -> tuple:
+        """Records n_samples REAL readings as "normal for this specific
+        install" (this room's typical temperature/humidity/CO2), which can
+        differ a lot from another room's -- a genuine per-install
+        calibration, same reasoning acoustic/EMG calibration use.
+        Complements read_raw()'s fixed-range normalization (unchanged);
+        doesn't replace it."""
+        raw_readings = [self.source.read() for _ in range(max(1, n_samples))]
+        channels = self._channel_reading(raw_readings[0]) if raw_readings else list(self.CHANNEL_RANGES)
+        samples = [[r[name] for name in channels] for r in raw_readings]
+        self._active_channels = channels
+        return self._deviation.calibrate(samples)
+
+    @property
+    def is_deviation_calibrated(self) -> bool:
+        return self._deviation.is_calibrated
+
+    def stress_score(self) -> float:
+        """How far the CURRENT reading sits from this install's calibrated
+        normal, via the shared BaselineDeviation primitive -- the same
+        relational-verification mechanism acoustic/EMG use here. ~0 means
+        "matches this room's normal"; growing values mean growing
+        deviation (e.g. CO2 climbing well past what's typical for this
+        specific space, not just approaching the sensor's absolute max)."""
+        readings = self.source.read()
+        reading = [readings[name] for name in self._active_channels]
+        return self._deviation.score(reading)
+
+    def smoothed_stress_score(self) -> float:
+        """EMA-smoothed stress_score() -- same motivation as
+        acoustic_anomaly_detector.py's smoothed_anomaly_score()."""
+        readings = self.source.read()
+        reading = [readings[name] for name in self._active_channels]
+        return self._deviation.smoothed_score(reading)
+
+    def reset_smoothing(self) -> None:
+        self._deviation.reset_smoothing()
+
+    def save_calibration(self, path: str) -> None:
+        self._deviation.save(path)
+
+    def load_calibration(self, path: str) -> tuple:
+        return self._deviation.load(path, expected_channels=len(self._active_channels))

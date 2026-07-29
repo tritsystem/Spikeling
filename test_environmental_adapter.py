@@ -8,6 +8,7 @@ documented SimulatedEnvironmentalSource, not real sensor data.
 
     python test_environmental_adapter.py
 """
+import random
 import sys
 sys.path.insert(0, "core")
 
@@ -88,6 +89,62 @@ def main():
     partial = EnvironmentalSensorAdapter(rt, source=PartialSource())
     check("a channel missing from the source's reading is skipped, not fabricated",
           len(partial.read_raw()) == 2)
+
+    # ── stress_score()/smoothed_stress_score() -- the shared
+    # BaselineDeviation relational-verification mechanism applied to
+    # environmental sensing: "unusual FOR THIS ROOM", not "close to the
+    # sensor's absolute max" (read_raw()'s unchanged job).
+    class JitterSource:
+        """Small real random jitter around a fixed point -- calibrate()
+        needs genuine per-channel variance to learn from, not a perfectly
+        identical repeated value (which would make baseline std ~0)."""
+        def __init__(self, temperature_c, humidity_pct, co2_ppm, jitter=0.5, rng=None):
+            self._base = {"temperature_c": temperature_c, "humidity_pct": humidity_pct, "co2_ppm": co2_ppm}
+            self._jitter = jitter
+            self._rng = rng or random.Random()
+
+        def read(self):
+            return {k: v + self._rng.uniform(-self._jitter, self._jitter) for k, v in self._base.items()}
+
+    normal_room = JitterSource(21.0, 45.0, 600.0, jitter=0.5, rng=random.Random(5))
+    score_env = EnvironmentalSensorAdapter(rt, source=normal_room, smoothing_alpha=0.5)
+    check("is_deviation_calibrated is False before calibrate() has run",
+          not score_env.is_deviation_calibrated)
+    score_env.calibrate(n_samples=100)
+    check("is_deviation_calibrated becomes True after calibrate()",
+          score_env.is_deviation_calibrated)
+
+    normal_scores = [score_env.stress_score() for _ in range(20)]
+    check("readings matching this room's calibrated normal score low",
+          sum(normal_scores) / len(normal_scores) < 3.0)
+
+    # a DIFFERENT room's install, calibrated on ITS OWN normal, correctly
+    # treats a CO2 level that would be unremarkable elsewhere as a real
+    # deviation if it's unusual for THIS specific calibrated baseline
+    quiet_room = JitterSource(20.0, 40.0, 450.0, jitter=0.3, rng=random.Random(9))
+    quiet_env = EnvironmentalSensorAdapter(rt, source=quiet_room, smoothing_alpha=0.5)
+    quiet_env.calibrate(n_samples=100)
+    stressed_room = JitterSource(20.0, 40.0, 1800.0, jitter=0.3, rng=random.Random(2))  # a real CO2 buildup
+    quiet_env.source = stressed_room
+    stressed_scores = [quiet_env.stress_score() for _ in range(10)]
+    check("a real CO2 buildup scores as a meaningful deviation from THIS room's calibrated normal",
+          sum(stressed_scores) / len(stressed_scores) > 5.0)
+
+    quiet_env.reset_smoothing()
+    smoothed_seq = [quiet_env.smoothed_stress_score() for _ in range(10)]
+    check("smoothed_stress_score() tracks the real sustained CO2 buildup (stays elevated)",
+          all(s > 3.0 for s in smoothed_seq[-3:]))
+
+    # save/load round-trip
+    import os
+    import tempfile
+    tmp_path = os.path.join(tempfile.gettempdir(), "test_environmental_baseline.json")
+    score_env.save_calibration(tmp_path)
+    fresh_env = EnvironmentalSensorAdapter(rt, source=JitterSource(21.0, 45.0, 600.0))
+    fresh_env.load_calibration(tmp_path)
+    check("save_calibration()/load_calibration() round-trip a real environmental baseline",
+          fresh_env.is_deviation_calibrated)
+    os.remove(tmp_path)
 
     # end to end: a real CO2 spike (a genuine "stressed room" scenario)
     # should be able to fire the network's action once encoded

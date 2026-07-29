@@ -216,7 +216,7 @@ def main():
     with open(tmp_path) as f:
         saved = json.load(f)
     check("the saved calibration's baseline exactly matches what calibrate() computed",
-          saved["baseline_mean"] == det._baseline_mean.tolist())
+          saved["mean"] == det._baseline_mean.tolist())
 
     det3 = AcousticAnomalyDetector(rt, sample_rate=SAMPLE_RATE, num_neurons=8)
     loaded_mean, loaded_std = det3.load_calibration(tmp_path)

@@ -91,6 +91,56 @@ def main():
     check("a sustained simulated contraction fires the network's CONTRACTION action end to end",
           len(fired) > 0)
 
+    # ── contraction_score()/smoothed_contraction_score() -- the shared
+    # BaselineDeviation relational-verification mechanism applied to EMG
+    resting_source = SimulatedEMGSource(resting=512.0, noise=5.0, burst_amplitude=300.0,
+                                         burst_probability=0.0, rng=random.Random(11))
+    score_adapter = EMGSensorAdapter(rt, source=resting_source, smoothing_alpha=0.5)
+    check("is_deviation_calibrated is False before calibrate() has run",
+          not score_adapter.is_deviation_calibrated)
+    score_adapter.calibrate(n_samples=100)
+    check("is_deviation_calibrated becomes True after calibrate()",
+          score_adapter.is_deviation_calibrated)
+
+    resting_scores = [score_adapter.contraction_score() for _ in range(20)]
+    check("resting-state contraction_score() stays low (matches the calibrated baseline)",
+          sum(resting_scores) / len(resting_scores) < 3.0)
+
+    burst_source2 = SimulatedEMGSource(resting=512.0, noise=5.0, burst_amplitude=400.0,
+                                        burst_probability=1.0, rng=random.Random(3))
+    burst_score_adapter = EMGSensorAdapter(rt, source=burst_source2, smoothing_alpha=0.5)
+    burst_score_adapter.source.burst_probability = 0.0   # calibrate on a clean resting period first
+    burst_score_adapter.calibrate(n_samples=100)
+    burst_score_adapter.source.burst_probability = 1.0   # now force a real contraction
+    burst_score_adapter.source._burst_ticks_left = 20
+    burst_scores = [burst_score_adapter.contraction_score() for _ in range(10)]
+    check("a genuine sustained contraction scores meaningfully higher than resting state",
+          sum(burst_scores) / len(burst_scores) > sum(resting_scores) / len(resting_scores) * 3)
+
+    # NOTE: contraction_score()/smoothed_contraction_score() each draw a
+    # FRESH independent sample internally, so comparing raw-sequence vs.
+    # smoothed-sequence variance here would compare two different random
+    # draws, not smoothed-vs-raw on the SAME data -- that exact comparison
+    # is already proven correct deterministically in
+    # test_baseline_deviation.py against a fixed sequence. This checks
+    # smoothed_contraction_score() itself behaves sensibly during a real
+    # sustained contraction: stays elevated, doesn't crash or drift to 0.
+    burst_score_adapter.reset_smoothing()
+    smoothed_seq = [burst_score_adapter.smoothed_contraction_score() for _ in range(10)]
+    check("smoothed_contraction_score() tracks a real sustained contraction (stays elevated, not near 0)",
+          all(s > 3.0 for s in smoothed_seq[-3:]))   # last few readings, once the EMA has caught up
+
+    # save/load round-trip
+    import os
+    import tempfile
+    tmp_path = os.path.join(tempfile.gettempdir(), "test_emg_baseline.json")
+    score_adapter.save_calibration(tmp_path)
+    fresh = EMGSensorAdapter(rt, source=SimulatedEMGSource())
+    fresh.load_calibration(tmp_path)
+    check("save_calibration()/load_calibration() round-trip a real EMG baseline",
+          fresh.is_deviation_calibrated)
+    os.remove(tmp_path)
+
     print("\n" + "-" * 42)
     print(f"  {_pass} passed, {_fail} FAILED")
     print("-" * 42 + "\n")

@@ -17,15 +17,21 @@ processing stage:
 
   1. FFT each captured chunk into a magnitude spectrum, binned into
      `num_neurons` frequency bands (see _spectrum()).
-  2. CALIBRATE a baseline (per-band mean + std) from a real recording of
-     normal operation (calibrate()) -- a genuine requirement for ANY
-     anomaly detector: "anomalous" only means anything relative to a
+  2. Hand that spectrum to BaselineDeviation (core/hardware/
+     baseline_deviation.py) -- the shared "verify a reading by its
+     relationship to a calibrated baseline" primitive used identically by
+     EMG and environmental detection now too, extracted from what this
+     file built first. "Anomalous" only means anything relative to a
      known-normal baseline for THIS specific install (a factory floor and
-     a bedroom have wildly different "normal").
-  3. read_raw() returns each band's DEVIATION from that baseline (a
-     z-score), not the raw spectrum -- so what actually drives spikes is
-     "how different does this sound from normal right now," which is the
-     actual detection signal, not raw loudness.
+     a bedroom have wildly different "normal"); the SAME mechanism (learn
+     a per-channel mean+std, z-score new readings against it, RMS into one
+     score, EMA-smooth for noisy real-world use) applies whether the
+     channel is a frequency band, an EMG reading, or an environmental
+     sensor.
+  3. read_raw() returns each band's DEVIATION from that baseline, not the
+     raw spectrum -- so what actually drives spikes is "how different does
+     this sound from normal right now," the actual detection signal, not
+     raw loudness.
 
 Still honestly scoped: this catches devices whose failure mode changes the
 SPECTRAL SHAPE of ambient sound near the sensor. It is not a general
@@ -39,6 +45,7 @@ problem out of the box.
 import numpy as np
 
 from .acoustic_adapter import AcousticSensorAdapter
+from .baseline_deviation import BaselineDeviation
 
 
 class AcousticAnomalyDetector(AcousticSensorAdapter):
@@ -49,22 +56,25 @@ class AcousticAnomalyDetector(AcousticSensorAdapter):
         (smaller deviations still saturate the encoder), higher = more
         conservative.
 
-        smoothing_alpha: weight given to each NEW reading in the
-        exponential moving average smoothed_anomaly_score() (0 < a <= 1;
-        higher = tracks recent readings faster but smooths less, lower =
-        smoother but slower to respond). Default 0.3 chosen from a real
-        measured need, not a guess -- see smoothed_anomaly_score()'s own
-        docstring for the actual numbers that motivated this."""
+        smoothing_alpha: passed straight through to the underlying
+        BaselineDeviation -- see smoothed_anomaly_score()'s own docstring
+        for the real measurement that motivated smoothing existing at
+        all."""
         super().__init__(*args, **kwargs)
         self.deviation_scale = deviation_scale
-        self.smoothing_alpha = smoothing_alpha
-        self._baseline_mean = None
-        self._baseline_std = None
-        self._smoothed_score = None
+        self._baseline = BaselineDeviation(smoothing_alpha=smoothing_alpha)
+
+    @property
+    def smoothing_alpha(self) -> float:
+        return self._baseline.smoothing_alpha
+
+    @smoothing_alpha.setter
+    def smoothing_alpha(self, value: float) -> None:
+        self._baseline.smoothing_alpha = value
 
     @property
     def is_calibrated(self) -> bool:
-        return self._baseline_mean is not None
+        return self._baseline.is_calibrated
 
     def _spectrum(self, samples: list) -> list:
         """Real FFT magnitude spectrum, Hann-windowed (reduces spectral
@@ -98,21 +108,12 @@ class AcousticAnomalyDetector(AcousticSensorAdapter):
         n_chunks = max(3, int(round(duration_s / chunk_s)))
         spectra = [self._spectrum(super(AcousticAnomalyDetector, self).read_raw())
                    for _ in range(n_chunks)]
-        arr = np.array(spectra)
-        self._baseline_mean = arr.mean(axis=0)
-        self._baseline_std = np.maximum(arr.std(axis=0), 1e-6)   # floor avoids div-by-zero on a silent band
-        self.reset_smoothing()   # old smoothed history is meaningless against a new baseline
-        return self._baseline_mean.tolist(), self._baseline_std.tolist()
+        return self._baseline.calibrate(spectra)
 
     def read_raw(self) -> list:
         samples = super().read_raw()   # the real mic capture, unmodified
         bands = self._spectrum(samples)
-        if not self.is_calibrated:
-            # no baseline yet -- report "no deviation" rather than a
-            # meaningless number computed against nothing
-            return [0.0] * len(bands)
-        return [(b - m) / s for b, m, s in
-                zip(bands, self._baseline_mean, self._baseline_std)]
+        return self._baseline.deviation(bands)
 
     @property
     def value_range(self):
@@ -123,34 +124,13 @@ class AcousticAnomalyDetector(AcousticSensorAdapter):
         calibration session's result survives past the process that ran
         it -- tuning against a real machine's real ambient sound is real
         work, not something to redo every run."""
-        if not self.is_calibrated:
-            raise RuntimeError("save_calibration() called before calibrate() -- nothing to save.")
-        import json
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump({
-                "num_neurons": self.encoder.num_neurons,
-                "sample_rate": self.sample_rate,
-                "chunk_ms": self.chunk_samples / float(self.sample_rate) * 1000.0,
-                "baseline_mean": self._baseline_mean.tolist(),
-                "baseline_std": self._baseline_std.tolist(),
-            }, f, indent=2)
+        self._baseline.save(path)
 
     def load_calibration(self, path: str) -> tuple:
         """Loads a previously-saved baseline. Refuses to load one computed
         with a different num_neurons -- the per-band deviation math is only
         meaningful if the band count matches this instance's encoder."""
-        import json
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        if data["num_neurons"] != self.encoder.num_neurons:
-            raise ValueError(
-                f"calibration file has {data['num_neurons']} bands, this detector has "
-                f"{self.encoder.num_neurons} -- they must match, or the per-band deviation "
-                f"math is comparing bands that don't correspond to the same frequencies.")
-        self._baseline_mean = np.array(data["baseline_mean"])
-        self._baseline_std = np.array(data["baseline_std"])
-        self.reset_smoothing()   # old smoothed history is meaningless against a new baseline
-        return self._baseline_mean.tolist(), self._baseline_std.tolist()
+        return self._baseline.load(path, expected_channels=self.encoder.num_neurons)
 
     def anomaly_score(self, deviation: list = None) -> float:
         """A single 0+ scalar summarizing how anomalous the CURRENT moment
@@ -162,9 +142,7 @@ class AcousticAnomalyDetector(AcousticSensorAdapter):
         there, which nothing here can know without real fault data."""
         if deviation is None:
             deviation = self.read_raw()
-        if not deviation:
-            return 0.0
-        return float(np.sqrt(np.mean(np.square(deviation))))
+        return self._baseline.score(deviation=deviation)
 
     def smoothed_anomaly_score(self, deviation: list = None) -> float:
         """Exponential moving average of anomaly_score() -- MOTIVATED BY A
@@ -186,16 +164,26 @@ class AcousticAnomalyDetector(AcousticSensorAdapter):
         call reset_smoothing() manually for any other reason to discard
         accumulated history (e.g. after a known one-off loud event you
         don't want lingering in the average)."""
-        raw = self.anomaly_score(deviation)
-        if self._smoothed_score is None:
-            self._smoothed_score = raw
-        else:
-            a = self.smoothing_alpha
-            self._smoothed_score = a * raw + (1.0 - a) * self._smoothed_score
-        return self._smoothed_score
+        if deviation is None:
+            deviation = self.read_raw()
+        return self._baseline.smoothed_score(deviation=deviation)
 
     def reset_smoothing(self) -> None:
         """Discards the running smoothed score -- the next
         smoothed_anomaly_score() call starts fresh from that single
         reading instead of blending in stale history."""
-        self._smoothed_score = None
+        self._baseline.reset_smoothing()
+
+    # kept for any external code/tests that reached into the old private
+    # fields directly -- both now live on the shared BaselineDeviation
+    @property
+    def _baseline_mean(self):
+        return self._baseline._mean
+
+    @property
+    def _baseline_std(self):
+        return self._baseline._std
+
+    @property
+    def _smoothed_score(self):
+        return self._baseline._smoothed_score

@@ -13,11 +13,22 @@ from a MyoWare-style sensor over serial) is included in the shape it would
 need, but is UNTESTED -- there's no real hardware to test it against yet.
 Swap `source=` for a real one once hardware exists; nothing else in
 EMGSensorAdapter needs to change.
+
+RELATIONAL SCORING: alongside the existing baseline-subtracted read_raw()
+(which drives spike encoding directly, unchanged), calibrate() also builds
+a BaselineDeviation (core/hardware/baseline_deviation.py) from the same
+resting samples -- the same "verify by relationship to a calibrated
+baseline" mechanism acoustic_anomaly_detector.py uses, applied here via
+contraction_score()/smoothed_contraction_score(). "Resting" and "elevated"
+only mean anything relative to THIS device's own calibrated resting
+variance -- electrode placement varies enough that a fixed cutoff can't
+work across installs, same reasoning acoustic's per-install baseline uses.
 """
 
 import random
 
 from .sensor_adapter import SensorAdapter
+from .baseline_deviation import BaselineDeviation
 
 
 class SimulatedEMGSource:
@@ -79,21 +90,27 @@ class EMGSensorAdapter(SensorAdapter):
     any object with `.read() -> float` and a `.value_range` property --
     SimulatedEMGSource by default."""
 
-    def __init__(self, *args, source=None, buffer_len: int = 32, **kwargs):
+    def __init__(self, *args, source=None, buffer_len: int = 32,
+                 smoothing_alpha: float = 0.3, **kwargs):
         super().__init__(*args, **kwargs)
         self.source = source or SimulatedEMGSource()
         self.buffer_len = buffer_len
         self._baseline = 0.0
+        self._deviation = BaselineDeviation(smoothing_alpha=smoothing_alpha)
 
     def calibrate(self, n_samples: int = 50) -> float:
         """Rest-state baseline calibration: average N readings while the
         muscle is at rest, subtracted from future readings. A REAL, well-
         known EMG requirement -- electrode placement and skin conductivity
         vary enough that raw ADC counts at rest are never exactly 0, so
-        every real EMG pipeline calibrates a baseline before use. Returns
-        the computed baseline."""
+        every real EMG pipeline calibrates a baseline before use. Also
+        calibrates the shared BaselineDeviation from the SAME resting
+        samples, so contraction_score() has a genuine per-install notion of
+        normal resting VARIANCE, not just an offset. Returns the computed
+        baseline (the simple mean, same return value as before)."""
         samples = [self.source.read() for _ in range(max(1, n_samples))]
         self._baseline = sum(samples) / len(samples)
+        self._deviation.calibrate([[s] for s in samples])
         return self._baseline
 
     def read_raw(self) -> list:
@@ -104,3 +121,34 @@ class EMGSensorAdapter(SensorAdapter):
         lo, hi = self.source.value_range
         # baseline-subtracted, so the range shifts by -baseline too
         return (lo - self._baseline, hi - self._baseline)
+
+    @property
+    def is_deviation_calibrated(self) -> bool:
+        return self._deviation.is_calibrated
+
+    def contraction_score(self) -> float:
+        """Reads ONE fresh sample and scores it against the calibrated
+        resting baseline in std-devs of normal resting variance, via the
+        shared BaselineDeviation primitive -- the same relational-
+        verification mechanism acoustic_anomaly_detector.py uses. ~0 means
+        "at rest"; growing values mean growing contraction. Requires
+        calibrate() to have run first (a fresh reading against no baseline
+        would be meaningless, same reasoning as acoustic's own
+        anomaly_score() before calibration)."""
+        return self._deviation.score([self.source.read()])
+
+    def smoothed_contraction_score(self) -> float:
+        """EMA-smoothed contraction_score() -- same motivation as
+        acoustic_anomaly_detector.py's smoothed_anomaly_score() (a single
+        instantaneous reading is noisy; smoothing consecutive readings is
+        what makes a threshold meaningful for continuous monitoring)."""
+        return self._deviation.smoothed_score([self.source.read()])
+
+    def reset_smoothing(self) -> None:
+        self._deviation.reset_smoothing()
+
+    def save_calibration(self, path: str) -> None:
+        self._deviation.save(path)
+
+    def load_calibration(self, path: str) -> tuple:
+        return self._deviation.load(path, expected_channels=1)
