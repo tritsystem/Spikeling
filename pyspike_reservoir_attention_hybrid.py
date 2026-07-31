@@ -117,7 +117,21 @@ class ReservoirBank(nn.Module):
         self.register_buffer("win", torch.tensor(rng.uniform(-1, 1, M).astype(np.float32)))
 
     def forward(self, u_batch):
-        """u_batch: (B, T). Returns (B, T, M) reservoir state sequence."""
+        """u_batch: (B, T). Returns (B, T, 2*M) reservoir state sequence:
+        position (x) concatenated with velocity (v).
+
+        DIAGNOSED (2026-07-31): a cheap no-training diagnostic (peak of
+        ||x|| vs ||v|| across time, compared to the true marker position)
+        showed position has a real, physical phase lag after being
+        excited -- a driven damped oscillator's position lags roughly a
+        quarter period behind the drive, while velocity responds almost
+        immediately to a kick. Measured lag: x off by +2 to +25 ticks
+        across 5 samples; v off by +0 ticks in 4 of 5. This is WHY hop-1
+        attention (below) had exactly 0.00% marker-localization accuracy
+        through the reservoir despite being proven exact on raw input --
+        it was keying/valuing off x, the wrong feature for localizing a
+        brief event in time. Returning [x, v] lets attention's learned
+        Wk/Wv pick whichever feature (or blend) serves each hop."""
         B = u_batch.shape[0]
         x = torch.zeros(B, self.M, device=u_batch.device)
         v = torch.zeros(B, self.M, device=u_batch.device)
@@ -133,8 +147,8 @@ class ReservoirBank(nn.Module):
                 accel = -(OMEGA ** 2) * x - 2 * DAMPING * OMEGA * v + drive
                 v = v + accel * DT
                 x = x + v * DT
-            out.append(x.clone())
-        return torch.stack(out, dim=1)  # (B, T, M)
+            out.append(torch.cat([x, v], dim=-1).clone())
+        return torch.stack(out, dim=1)  # (B, T, 2*M)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -293,28 +307,35 @@ if __name__ == "__main__":
 
     rng = np.random.default_rng(0)
     train_u, train_y, _ = make_task(rng, 800)
-    test_u, test_y, _ = make_task(rng, 200)
+    test_u, test_y, test_marker_pos = make_task(rng, 200)
 
     reservoir = ReservoirBank(M_RESERVOIR).to(DEVICE)
+    FEAT = 2 * M_RESERVOIR  # reservoir now emits [x, v] concatenated
 
     print("\nSTAGE 1: reservoir -> plain linear readout (the existing baseline)")
     torch.manual_seed(0)
-    baseline = LinearBaseline(M_RESERVOIR).to(DEVICE)
+    baseline = LinearBaseline(FEAT).to(DEVICE)
     nmse1 = run_stage("linear readout (baseline)", baseline, reservoir, train_u, train_y, test_u, test_y, is_linear_baseline=True)
 
     print("\nSTAGE 2: reservoir -> self-attention -> readout (full precision)")
     torch.manual_seed(0)
-    attn_model = ReservoirAttentionReadout(M_RESERVOIR, use_ternary=False, use_spiking=False).to(DEVICE)
+    attn_model = ReservoirAttentionReadout(FEAT, use_ternary=False, use_spiking=False).to(DEVICE)
     nmse2 = run_stage("attention (full precision)", attn_model, reservoir, train_u, train_y, test_u, test_y)
+    with torch.no_grad():
+        test_states = reservoir(torch.tensor(test_u, device=DEVICE))
+        _, attn1 = attn_model(test_states)
+        found_pos = attn1.argmax(dim=-1).cpu().numpy()
+        loc_acc = (found_pos == test_marker_pos).mean() * 100
+        print(f"  hop-1 marker-localization accuracy (x+v feature): {loc_acc:.2f}%")
 
     print("\nSTAGE 3: reservoir -> TERNARY self-attention -> readout")
     torch.manual_seed(0)
-    ternary_model = ReservoirAttentionReadout(M_RESERVOIR, use_ternary=True, use_spiking=False).to(DEVICE)
+    ternary_model = ReservoirAttentionReadout(FEAT, use_ternary=True, use_spiking=False).to(DEVICE)
     nmse3 = run_stage("attention (ternary QAT)", ternary_model, reservoir, train_u, train_y, test_u, test_y)
 
     print("\nSTAGE 4: reservoir -> TERNARY + SPIKING self-attention -> readout")
     torch.manual_seed(0)
-    full_model = ReservoirAttentionReadout(M_RESERVOIR, use_ternary=True, use_spiking=True).to(DEVICE)
+    full_model = ReservoirAttentionReadout(FEAT, use_ternary=True, use_spiking=True).to(DEVICE)
     nmse4 = run_stage("attention (ternary + spiking)", full_model, reservoir, train_u, train_y, test_u, test_y)
 
     print("\n" + "=" * 78)
