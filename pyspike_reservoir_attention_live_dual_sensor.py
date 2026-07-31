@@ -38,6 +38,12 @@ BLOCK_SIZE = 2048          # ~128ms per tick
 DURATION_SEC = 25
 CONF_THRESH = 0.85         # balanced threshold from the confidence-gate test
 EMA_ALPHA = 0.05
+BURN_IN = 20               # ticks of stats-only warm-up before any value is fed
+                            # into the reservoir -- fixes the false positive from
+                            # the first run, where seeding mean/var from a single
+                            # tick-0 sample let a one-off camera startup transient
+                            # (autoexposure/focus stabilizing) dominate the very
+                            # first window before the EMA had converged
 
 
 def main():
@@ -61,13 +67,35 @@ def main():
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     if not cap.isOpened():
         print("WARNING: camera did not open, video channel will be flat.")
-    prev_gray = None
 
     stream = sd.InputStream(samplerate=SAMPLE_RATE, channels=1, blocksize=BLOCK_SIZE, dtype="float32")
     stream.start()
 
-    audio_mean = audio_var = None
-    video_mean = video_var = None
+    def read_one_tick():
+        audio_block, _ = stream.read(BLOCK_SIZE)
+        rms = float(np.sqrt(np.mean(audio_block.astype(np.float64) ** 2)) + 1e-8)
+        motion = 0.0
+        if cap.isOpened():
+            ok, frame = cap.read()
+            if ok:
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY).astype(np.float32)
+                if read_one_tick.prev_gray is not None:
+                    motion = float(np.mean(np.abs(gray - read_one_tick.prev_gray)))
+                read_one_tick.prev_gray = gray
+        return rms, motion
+    read_one_tick.prev_gray = None
+
+    print(f"\nBurning in {BURN_IN} ticks of stats-only warm-up (camera/mic settling, "
+          f"not yet feeding the model) -- stay still and quiet for a moment...")
+    burn_audio, burn_video = [], []
+    for _ in range(BURN_IN):
+        r, m = read_one_tick()
+        burn_audio.append(r)
+        burn_video.append(m)
+    audio_mean, audio_var = float(np.mean(burn_audio)), float(np.var(burn_audio)) + 1e-6
+    video_mean, video_var = float(np.mean(burn_video)), float(np.var(burn_video)) + 1e-6
+    print(f"burn-in done: audio_mean={audio_mean:.4f} audio_std={audio_var**0.5:.4f}  "
+          f"video_mean={video_mean:.4f} video_std={video_var**0.5:.4f}")
 
     print(f"\nLive dual-sensor test running for {DURATION_SEC}s.")
     print("Clap or make a sudden noise for the mic; wave/move suddenly for the camera.\n")
@@ -78,21 +106,7 @@ def main():
     audio_events, video_events = [], []
     try:
         while time.time() - t0 < DURATION_SEC:
-            audio_block, _ = stream.read(BLOCK_SIZE)
-            rms = float(np.sqrt(np.mean(audio_block.astype(np.float64) ** 2)) + 1e-8)
-
-            motion = 0.0
-            if cap.isOpened():
-                ok, frame = cap.read()
-                if ok:
-                    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY).astype(np.float32)
-                    if prev_gray is not None:
-                        motion = float(np.mean(np.abs(gray - prev_gray)))
-                    prev_gray = gray
-
-            if tick == 0:
-                audio_mean, audio_var = rms, 1e-6
-                video_mean, video_var = motion, 1e-6
+            rms, motion = read_one_tick()
 
             audio_z = (rms - audio_mean) / (audio_var ** 0.5 + 1e-6)
             video_z = (motion - video_mean) / (video_var ** 0.5 + 1e-6)
