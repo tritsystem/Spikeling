@@ -17,10 +17,60 @@ agent calling list_sources() gets the truth, not an assumption):
   emg               SIMULATED (no real EMG hardware connected)
   environmental     SIMULATED (no real environmental hardware connected)
 
+ALSO EXPOSED (electronics-assistant / voice-loop / wireless-glasses tools,
+added 2026-07-29 -- honest status per tool below, not just per source):
+  capture_photo, log_part_note, capture_dismantling_step, log_dismantling
+      REAL -- capture_part_photo()/log_electronics_note()/
+      capture_step_photo()/log_dismantling_session() from
+      electronics_assistant.py, hardware-verified tonight (real C922
+      captures, real vault notes written and read back).
+  record_voice
+      REAL -- record_voice_clip() from voice_loop.py, hardware-verified
+      (real mic capture confirmed). Deliberately does NOT wrap
+      voicebox_transcribe/voicebox_speak -- those are voicebox's own MCP
+      tools, kept separate rather than re-wrapped here.
+  capture_wireless_photo, display_on_glasses
+      UNTESTED -- capture_wireless_frame()/send_to_glasses_display() from
+      wireless_glasses.py. No ESP32S3/ESP32C3 hardware exists yet to
+      verify these against; correct shape for when it arrives, same
+      discipline as core/hardware/emg_adapter.py's SerialEMGSource stub.
+  connect_obd, obd_dtc_codes, obd_live_data, disconnect_obd
+      UNTESTED -- automotive_obd.py, real python-OBD library underneath
+      (API confirmed against the installed package), no physical ELM327
+      adapter exists yet. Deliberately INDEPENDENT of the electronics-
+      assistant/photo-logging tools above -- zero shared code, a missing
+      OBD-II adapter never affects capture_photo/log_part_note/etc. and
+      vice versa. capture_photo/log_part_note/capture_dismantling_step/
+      log_dismantling all now also accept a `kind` tag so the SAME
+      mechanism logs automotive work too (e.g. kind="automotive-repair"),
+      not a separate reimplementation.
+  search_vault, read_project, import_data
+      REAL -- project_assistant.py, hardware-verified tonight (real
+      search of the actual vault notes, real README read from the
+      scrapyard-sensor-project directory, real 620-row JSON import).
+      Domain-agnostic project-context tools, INDEPENDENT of every other
+      module here -- works for any project, not just electronics/
+      automotive, and needs none of the camera/OBD/voice hardware.
+  run_event_scan
+      REAL -- event_scanner.py, hardware-verified tonight. Runs
+      motion_scan_trigger.spk (a real Spikeling network: 9 grid-cell
+      neurons -> one MotionTrigger neuron) against the live webcam via
+      VideoSensorAdapter -- genuine leaky-integrate spike "memory" needs
+      SUSTAINED motion across several real ticks to fire, not one noisy
+      blip. A REAL BUG was caught and fixed while building this: initial
+      neuron thresholds (40/60) were lower than SensorAdapter's own
+      default per-spike `drive` (50), so a single stray encoder spike
+      instantly fired a neuron with no real accumulation ever happening
+      -- thresholds must sit well above a single spike's drive for
+      genuine multi-tick "memory" behavior to exist at all. Fixed
+      (150/250) but even after the fix, fires fairly often against a
+      person actively at their desk (typing/shifting reads as real,
+      if modest, sustained motion) -- correct behavior for a desk scene,
+      not validated against a genuinely still baseline.
+
 RUNS INTERACTIVELY, NOT AUTONOMOUSLY: this server only does work when a
 tool is actually called by a connected client. Nothing here schedules or
-loops on its own -- calibrate/read/diagnose/run_experiment each do one
-bounded unit of work and return.
+loops on its own -- every tool does one bounded unit of work and returns.
 
     python mcp_server.py
 """
@@ -33,6 +83,23 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / "core"))
 
 from mcp.server.fastmcp import FastMCP
+
+from electronics_assistant import (
+    capture_part_photo,
+    log_electronics_note,
+    capture_step_photo,
+    log_dismantling_session,
+)
+from voice_loop import record_voice_clip
+from wireless_glasses import capture_wireless_frame, send_to_glasses_display
+from automotive_obd import (
+    connect_obd as _connect_obd,
+    read_dtc_codes as _read_dtc_codes,
+    read_live_data as _read_live_data,
+    disconnect_obd as _disconnect_obd,
+)
+from project_assistant import search_vault_notes, read_project_directory, import_structured_data
+import event_scanner
 
 from hardware.acoustic_anomaly_detector import AcousticAnomalyDetector
 from hardware.system_telemetry_adapter import SystemTelemetryAdapter, SystemTelemetrySource
@@ -223,6 +290,153 @@ def run_experiment(sandbox_id: str, n_calibration: int = 20,
     out_path.write_text(json.dumps(result, indent=2))
     result["saved_to"] = str(out_path)
     return result
+
+
+@mcp.tool()
+def capture_photo(label: str) -> dict:
+    """Real webcam capture (C922) of a salvaged electronics part, for
+    Claude to Read and identify/research. Returns the saved photo path --
+    Claude still does the actual identification by looking at the file,
+    this tool only handles the real capture."""
+    path = capture_part_photo(label)
+    return {"photo_path": path}
+
+
+@mcp.tool()
+def log_part_note(title: str, photo_paths: list, body_markdown: str,
+                   status: str = "identified", kind: str = "electronics-salvage") -> dict:
+    """Writes a real vault note (vault/Project Work) for an identified/
+    researched part -- same convention as every other note in this vault
+    (frontmatter, embedded photos via ![[name]]). `kind` is the domain
+    tag in the note's frontmatter -- pass e.g. "automotive-repair" for
+    car parts/diagnosis rather than leaving it defaulted to electronics;
+    the underlying capture/identify/log mechanism is identical either
+    way, only the label changes."""
+    path = log_electronics_note(title, photo_paths, body_markdown, status, kind)
+    return {"note_path": path}
+
+
+@mcp.tool()
+def capture_dismantling_step(session_label: str, step_num: int) -> dict:
+    """Real webcam capture for one step of a dismantling/construction
+    session -- named by session + step number so a multi-step session's
+    photos stay in order."""
+    path = capture_step_photo(session_label, step_num)
+    return {"photo_path": path}
+
+
+@mcp.tool()
+def log_dismantling(title: str, steps: list, status: str = "in-progress",
+                     kind: str = "electronics-dismantling") -> dict:
+    """Writes ONE consolidated vault note for a whole dismantling/
+    construction/repair session. `steps`: list of {"photo": path,
+    "guidance": text} dicts, one per real step Claude actually looked at
+    and gave guidance for. `kind` is the domain tag -- pass e.g.
+    "automotive-repair" for a car repair session; the step-by-step
+    capture/guidance/logging mechanism is identical for any domain."""
+    path = log_dismantling_session(title, steps, status, kind)
+    return {"note_path": path}
+
+
+@mcp.tool()
+def record_voice(duration_s: float = 5.0, device_index: int = -1) -> dict:
+    """Records real audio from a mic (device_index=-1 uses the system
+    default input) for voicebox_transcribe to process afterward. Deliberately
+    doesn't call transcribe/speak itself -- those stay as voicebox's own
+    separate MCP tools, this only handles capture."""
+    device = None if device_index < 0 else device_index
+    path = record_voice_clip(duration_s=duration_s, device=device)
+    return {"audio_path": path}
+
+
+@mcp.tool()
+def capture_wireless_photo(esp32_cam_ip: str) -> dict:
+    """UNTESTED -- fetches a real JPEG snapshot from a wireless ESP32S3
+    Sense camera over WiFi. No ESP32S3 hardware exists yet to verify this
+    against; will raise a real connection error if the IP is unreachable,
+    not silently return a fake frame."""
+    path = capture_wireless_frame(esp32_cam_ip)
+    return {"photo_path": path}
+
+
+@mcp.tool()
+def display_on_glasses(esp32_display_ip: str, text: str) -> dict:
+    """UNTESTED -- sends text to a wireless ESP32C3's OLED display over
+    WiFi. No ESP32C3 hardware or matching firmware exists yet to verify
+    this against."""
+    ok = send_to_glasses_display(esp32_display_ip, text)
+    return {"sent": ok}
+
+
+@mcp.tool()
+def connect_obd(port: str = "") -> dict:
+    """UNTESTED -- connects to a real ELM327 OBD-II adapter. port=""
+    lets python-OBD auto-detect (USB/Bluetooth-as-COM-port adapters);
+    pass an explicit port (e.g. "COM5") or a WiFi adapter's
+    "socket://<ip>:<port>" string otherwise. No physical adapter exists
+    yet to verify this against -- raises a real error if none is found,
+    never fakes a successful connection. Fully independent of the
+    electronics-assistant/photo-logging tools -- neither affects the other."""
+    return _connect_obd(port=port or None)
+
+
+@mcp.tool()
+def obd_dtc_codes() -> list:
+    """UNTESTED -- reads real check-engine/diagnostic trouble codes.
+    Requires connect_obd() to have succeeded first; raises if not connected."""
+    return _read_dtc_codes()
+
+
+@mcp.tool()
+def obd_live_data(pids: list = None) -> dict:
+    """UNTESTED -- reads real live sensor values (pids: e.g. ["RPM",
+    "COOLANT_TEMP", "SPEED"], defaults to a small common set). Requires
+    connect_obd() first; a pid the car doesn't support comes back None."""
+    return _read_live_data(pids=pids)
+
+
+@mcp.tool()
+def disconnect_obd() -> dict:
+    """Closes the real OBD-II connection, if one is open."""
+    return _disconnect_obd()
+
+
+@mcp.tool()
+def search_vault(query: str, limit: int = 10) -> list:
+    """Real text search over vault/Project Work + vault/Research's actual
+    notes (filename or content match) -- finds what's already been logged
+    about a topic before starting fresh on it. Domain-agnostic: works for
+    any project, not just electronics/automotive."""
+    return search_vault_notes(query, limit=limit)
+
+
+@mcp.tool()
+def read_project(path: str, max_entries: int = 30) -> dict:
+    """Real, read-only snapshot of an existing project directory: its
+    README (if present) and top-level file/folder listing (not a full
+    recursive walk -- stays fast regardless of project size). Raises if
+    the path isn't a real existing directory."""
+    return read_project_directory(path, max_entries=max_entries)
+
+
+@mcp.tool()
+def import_data(path: str) -> dict:
+    """Real CSV/JSON import of a parts list, spec sheet, or any other
+    structured data file someone already compiled elsewhere. Raises on
+    an unsupported extension or a real parse error."""
+    return import_structured_data(path)
+
+
+@mcp.tool()
+def run_event_scan(duration_s: float = 30.0) -> dict:
+    """Runs real event-triggered video scanning for duration_s seconds:
+    calibrates on the current webcam view, then a real Spikeling network
+    (motion_scan_trigger.spk) watches for SUSTAINED motion (genuine
+    leaky-integrate spike memory, not a bare threshold) and saves a frame
+    each time it fires. Blocks for the full duration_s. Returns the real
+    list of saved trigger-frame paths for Claude to Read and describe."""
+    frames = event_scanner.main(duration_s=duration_s)
+    return {"triggered_frames": frames, "count": len(frames)}
 
 
 @mcp.tool()

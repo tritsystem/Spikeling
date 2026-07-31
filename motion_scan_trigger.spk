@@ -1,0 +1,35 @@
+# motion_scan_trigger.spk
+#
+# Event-triggered video scanning: 9 input neurons (one per
+# VideoSensorAdapter 3x3 grid cell) feed a single MotionTrigger neuron.
+# This is genuine spike-based "memory" of SUSTAINED motion, not an
+# instantaneous threshold check -- each neuron's leak parameter means a
+# single noisy blip decays away before it can drive MotionTrigger over
+# its own threshold, but real, repeated/sustained motion across several
+# real ticks accumulates enough propagated charge to actually fire it.
+# The refractory period below is real debouncing: won't re-trigger
+# faster than once per second even under continuous motion.
+
+neuron Cell0 threshold=150 leak=20
+neuron Cell1 threshold=150 leak=20
+neuron Cell2 threshold=150 leak=20
+neuron Cell3 threshold=150 leak=20
+neuron Cell4 threshold=150 leak=20
+neuron Cell5 threshold=150 leak=20
+neuron Cell6 threshold=150 leak=20
+neuron Cell7 threshold=150 leak=20
+neuron Cell8 threshold=150 leak=20
+neuron MotionTrigger threshold=250 leak=35
+
+connect Cell0 -> MotionTrigger weight=30
+connect Cell1 -> MotionTrigger weight=30
+connect Cell2 -> MotionTrigger weight=30
+connect Cell3 -> MotionTrigger weight=30
+connect Cell4 -> MotionTrigger weight=30
+connect Cell5 -> MotionTrigger weight=30
+connect Cell6 -> MotionTrigger weight=30
+connect Cell7 -> MotionTrigger weight=30
+connect Cell8 -> MotionTrigger weight=30
+
+action MotionTrigger -> [SCAN_TRIGGER]
+refractory=1000ms

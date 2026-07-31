@@ -42,6 +42,9 @@ class VideoMotionSource:
                                 f"real hardware/driver check failed, not assumed to work.")
         self.grid = grid
         self._prev_gray = None
+        self.last_frame = None   # raw BGR frame cached each read() -- lets an event-triggered
+                                  # caller (event_scanner.py) save the EXACT frame that caused a
+                                  # trigger, not just the numeric per-cell diff values
 
     @property
     def channel_names(self) -> list:
@@ -53,6 +56,7 @@ class VideoMotionSource:
         if not ret:
             raise RuntimeError("Webcam read failed mid-session -- a real hardware/driver "
                                 "issue, not silently papered over.")
+        self.last_frame = frame
         return cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
     def read(self) -> list:
