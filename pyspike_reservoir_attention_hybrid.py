@@ -329,14 +329,24 @@ if __name__ == "__main__":
         print(f"  hop-1 marker-localization accuracy (x+v feature): {loc_acc:.2f}%")
 
     print("\nSTAGE 3: reservoir -> TERNARY self-attention -> readout")
+    # DIAGNOSED (2026-07-31): lr=0.01 (fine for Stage 2) made all-ternary
+    # training collapse to 0% marker localization (NMSE 0.74) even though
+    # each of Wk/Wv/Wo individually tolerates full ternary quantization at
+    # near-zero cost (ablation: K-only, V-only, O-only all 100% localized,
+    # NMSE~0.11-0.12). K+O quantized together was the specific pair that
+    # broke it. Confirmed an optimization instability, not a capacity
+    # limit: lr=0.003 alone recovers 100% localization, NMSE 0.126 --
+    # matching full precision. Same lesson as the MobileNet ternary QAT
+    # result earlier this session: quantized paths need gentler training,
+    # not more capacity.
     torch.manual_seed(0)
     ternary_model = ReservoirAttentionReadout(FEAT, use_ternary=True, use_spiking=False).to(DEVICE)
-    nmse3 = run_stage("attention (ternary QAT)", ternary_model, reservoir, train_u, train_y, test_u, test_y)
+    nmse3 = run_stage("attention (ternary QAT)", ternary_model, reservoir, train_u, train_y, test_u, test_y, lr=0.003)
 
     print("\nSTAGE 4: reservoir -> TERNARY + SPIKING self-attention -> readout")
     torch.manual_seed(0)
     full_model = ReservoirAttentionReadout(FEAT, use_ternary=True, use_spiking=True).to(DEVICE)
-    nmse4 = run_stage("attention (ternary + spiking)", full_model, reservoir, train_u, train_y, test_u, test_y)
+    nmse4 = run_stage("attention (ternary + spiking)", full_model, reservoir, train_u, train_y, test_u, test_y, lr=0.003)
 
     print("\n" + "=" * 78)
     print("SUMMARY -- does each added piece earn its place, or just add complexity?")
