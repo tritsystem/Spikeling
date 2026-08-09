@@ -1,0 +1,2071 @@
+<title>The Playbook — tritsystem portfolio</title>
+<style>
+  :root {
+    --bg: #eef1ee;
+    --panel: #e2e8e2;
+    --panel-2: #d7ded7;
+    --ink: #16211c;
+    --ink-dim: #4d5a52;
+    --ink-faint: #7c8a81;
+    --rule: #c3cdc3;
+    --accent: #8a5a24;
+    --accent-ink: #ffffff;
+    --code-bg: #dbe2db;
+    --trit-neg: #a8433a;
+    --trit-neg-bg: #f3dcd9;
+    --trit-zero: #7c7568;
+    --trit-zero-bg: #e7e3d7;
+    --trit-pos: #3f7a4a;
+    --trit-pos-bg: #dbe9dc;
+    --shadow: 0 1px 2px rgba(20,30,22,0.06), 0 8px 24px rgba(20,30,22,0.05);
+    --mono: ui-monospace, "Cascadia Mono", "Cascadia Code", "JetBrains Mono", "SF Mono", Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", "Helvetica Neue", Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b1210;
+      --panel: #101a15;
+      --panel-2: #16211b;
+      --ink: #e8efe9;
+      --ink-dim: #9db2a5;
+      --ink-faint: #61756a;
+      --rule: #22322a;
+      --accent: #e3a159;
+      --accent-ink: #16130c;
+      --code-bg: #0e1712;
+      --trit-neg: #e08279;
+      --trit-neg-bg: #2b1917;
+      --trit-zero: #b9b39f;
+      --trit-zero-bg: #23231c;
+      --trit-pos: #7bc98c;
+      --trit-pos-bg: #142419;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 28px rgba(0,0,0,0.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0b1210; --panel: #101a15; --panel-2: #16211b; --ink: #e8efe9; --ink-dim: #9db2a5;
+    --ink-faint: #61756a; --rule: #22322a; --accent: #e3a159; --accent-ink: #16130c; --code-bg: #0e1712;
+    --trit-neg: #e08279; --trit-neg-bg: #2b1917; --trit-zero: #b9b39f; --trit-zero-bg: #23231c;
+    --trit-pos: #7bc98c; --trit-pos-bg: #142419; --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 28px rgba(0,0,0,0.35);
+  }
+  :root[data-theme="light"] {
+    --bg: #eef1ee; --panel: #e2e8e2; --panel-2: #d7ded7; --ink: #16211c; --ink-dim: #4d5a52;
+    --ink-faint: #7c8a81; --rule: #c3cdc3; --accent: #8a5a24; --accent-ink: #ffffff; --code-bg: #dbe2db;
+    --trit-neg: #a8433a; --trit-neg-bg: #f3dcd9; --trit-zero: #7c7568; --trit-zero-bg: #e7e3d7;
+    --trit-pos: #3f7a4a; --trit-pos-bg: #dbe9dc; --shadow: 0 1px 2px rgba(20,30,22,0.06), 0 8px 24px rgba(20,30,22,0.05);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--sans); font-size: 16px; line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); }
+  code, .mono { font-family: var(--mono); }
+  ::selection { background: var(--accent); color: var(--accent-ink); }
+
+  /* Mobile-first: single column, sidebar is a normal (non-sticky) capped-height
+     block above the content. Desktop enhancement below turns it into a sticky
+     side column. Only ONE declaration per property so there's no cascade-order
+     fight between a base rule and a media-query override. */
+  .shell { display: block; }
+  .sidebar {
+    position: static; width: 100%; max-height: 38vh; overflow-y: auto;
+    background: var(--panel); border-bottom: 1px solid var(--rule);
+    padding: 16px 16px 12px;
+  }
+  @media (min-width: 881px) {
+    .shell { display: grid; grid-template-columns: 288px 1fr; min-height: 100vh; }
+    .sidebar {
+      position: sticky; top: 0; width: auto; height: 100vh; max-height: none; overflow-y: auto;
+      border-bottom: none; border-right: 1px solid var(--rule);
+      padding: 22px 18px 40px;
+    }
+  }
+  .brand { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+  .brand .mark { font-family: var(--mono); font-weight: 700; letter-spacing: 0.02em; }
+  .brand .mark span { color: var(--accent); }
+  .brand-sub { font-size: 12px; color: var(--ink-faint); margin-bottom: 18px; }
+
+  .progress { display: flex; gap: 6px; margin-bottom: 20px; }
+  .progress-seg { flex: 1; height: 6px; border-radius: 3px; background: var(--rule); overflow: hidden; }
+  .progress-fill { height: 100%; }
+  .progress-label { font-size: 11px; color: var(--ink-faint); display: flex; justify-content: space-between; margin-top: 6px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+  .navgroup-title {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-faint); margin: 22px 0 8px; padding-left: 2px;
+  }
+  .navlink {
+    display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px;
+    color: var(--ink-dim); text-decoration: none; font-size: 13.5px; line-height: 1.3;
+    border-left: 2px solid transparent;
+  }
+  .navlink:hover { background: var(--panel-2); color: var(--ink); }
+  .navlink.active { color: var(--ink); background: var(--panel-2); border-left-color: var(--accent); font-weight: 600; }
+  .navlink .n { font-family: var(--mono); color: var(--ink-faint); font-size: 11px; width: 16px; flex-shrink: 0; }
+  .navchip { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--rule); }
+
+  .main { padding: 48px clamp(20px, 5vw, 64px) 120px; max-width: 880px; }
+
+  .hero { margin-bottom: 56px; }
+  .hero .eyebrow { color: var(--accent); }
+  .hero h1 {
+    font-family: var(--mono); font-size: clamp(30px, 4vw, 42px); line-height: 1.1;
+    margin: 10px 0 16px; text-wrap: balance; letter-spacing: -0.01em;
+  }
+  .hero p.lede { font-size: 17px; color: var(--ink-dim); max-width: 62ch; margin: 0 0 20px; }
+  .hero .howto {
+    background: var(--panel); border: 1px solid var(--rule); border-radius: 10px;
+    padding: 18px 20px; font-size: 14.5px; color: var(--ink-dim); margin-top: 24px;
+  }
+  .hero .howto b { color: var(--ink); }
+  .trit-legend { display: flex; gap: 18px; margin-top: 14px; flex-wrap: wrap; }
+  .trit-legend-item { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ink-dim); }
+  .trit-legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-faint); font-weight: 600;
+  }
+
+  section.chapter { padding-top: 64px; margin-top: -20px; border-top: 1px solid var(--rule); scroll-margin-top: 24px; }
+  section.chapter:first-of-type { border-top: none; }
+
+  .chapter-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; margin-bottom: 6px; }
+  .chapter-head h2 {
+    font-family: var(--mono); font-size: 26px; margin: 6px 0 4px; letter-spacing: -0.005em; text-wrap: balance;
+  }
+  .chapter-meta { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; font-size: 12.5px; color: var(--ink-faint); margin-bottom: 14px; }
+  .chapter-meta a { color: var(--ink-faint); text-decoration: underline; text-decoration-color: var(--rule); }
+  .chapter-meta a:hover { color: var(--accent); text-decoration-color: var(--accent); }
+  .snapshot { font-size: 16px; color: var(--ink-dim); max-width: 68ch; margin: 0 0 24px; }
+
+  .trit-toggle {
+    display: inline-flex; border: 1px solid var(--rule); border-radius: 999px; overflow: hidden;
+    font-family: var(--mono); font-size: 11px; flex-shrink: 0; background: var(--panel);
+  }
+  .trit-toggle button {
+    border: none; background: transparent; padding: 6px 11px; cursor: pointer; color: var(--ink-faint);
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.03em;
+  }
+  .trit-toggle button.on[data-v="-1"] { background: var(--trit-neg-bg); color: var(--trit-neg); }
+  .trit-toggle button.on[data-v="0"] { background: var(--trit-zero-bg); color: var(--trit-zero); }
+  .trit-toggle button.on[data-v="1"] { background: var(--trit-pos-bg); color: var(--trit-pos); }
+  .trit-toggle button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+  h3.sub { font-family: var(--mono); font-size: 13px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--ink-faint); margin: 34px 0 14px; }
+
+  details.qa {
+    border: 1px solid var(--rule); border-radius: 10px; background: var(--panel);
+    margin-bottom: 10px; overflow: hidden;
+  }
+  details.qa summary {
+    padding: 14px 18px; cursor: pointer; font-weight: 600; font-size: 15px;
+    list-style: none; display: flex; gap: 10px; align-items: baseline;
+  }
+  details.qa summary::-webkit-details-marker { display: none; }
+  details.qa summary::before { content: "Q"; font-family: var(--mono); font-size: 11px; color: var(--accent); flex-shrink: 0; margin-top: 2px; }
+  details.qa[open] summary { border-bottom: 1px solid var(--rule); }
+  details.qa .a { padding: 14px 18px 18px 40px; font-size: 14.5px; color: var(--ink-dim); }
+  details.qa .a::before { content: "A"; font-family: var(--mono); font-size: 11px; color: var(--ink-faint); margin-left: -22px; margin-right: 11px; }
+  details.qa .a b, details.qa .a strong { color: var(--ink); }
+  details.qa .a code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; font-size: 0.92em; }
+
+  ol.build { margin: 0; padding-left: 0; list-style: none; counter-reset: build; }
+  ol.build li {
+    counter-increment: build; position: relative; padding: 8px 0 8px 40px; font-size: 14.5px;
+    color: var(--ink-dim); border-bottom: 1px dashed var(--rule);
+  }
+  ol.build li:last-child { border-bottom: none; }
+  ol.build li::before {
+    content: counter(build); position: absolute; left: 0; top: 8px;
+    font-family: var(--mono); font-size: 11px; color: var(--accent);
+    width: 26px; height: 22px; display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--rule); border-radius: 5px; background: var(--panel);
+  }
+  ol.build li code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; font-size: 0.9em; }
+  ol.build li b { color: var(--ink); }
+
+  .connections { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .tag {
+    font-family: var(--mono); font-size: 11.5px; color: var(--ink-dim); background: var(--code-bg);
+    padding: 4px 9px; border-radius: 5px; border: 1px solid var(--rule);
+  }
+
+  .callout {
+    border-left: 3px solid var(--accent); background: var(--panel); border-radius: 0 8px 8px 0;
+    padding: 12px 16px; font-size: 14px; color: var(--ink-dim); margin: 16px 0;
+  }
+  .callout b { color: var(--ink); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  table.wrap-x { display: block; overflow-x: auto; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--rule); }
+  th { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-faint); }
+  td.num { font-variant-numeric: tabular-nums; }
+
+  .playground {
+    border: 1px solid var(--rule); border-radius: 10px; background: var(--code-bg);
+    padding: 16px 18px 18px; margin: 18px 0 8px;
+  }
+  .playground .eyebrow { margin: 0 0 8px; display: block; }
+  .playground-intro { font-size: 13.5px; color: var(--ink-dim); margin: 0 0 10px; }
+  .code-editor {
+    width: 100%; min-height: 190px; resize: vertical; font-family: var(--mono); font-size: 13px;
+    line-height: 1.55; background: var(--panel); color: var(--ink); border: 1px solid var(--rule);
+    border-radius: 8px; padding: 12px 14px; tab-size: 2; white-space: pre; overflow: auto;
+  }
+  .code-editor:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .playground-controls { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
+  .run-btn {
+    font-family: var(--mono); font-size: 12.5px; letter-spacing: 0.02em; cursor: pointer;
+    background: var(--accent); color: var(--accent-ink); border: none; border-radius: 6px;
+    padding: 8px 14px; font-weight: 700;
+  }
+  .run-btn:hover { filter: brightness(1.08); }
+  .run-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .playground-params { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--ink-dim); font-family: var(--mono); }
+  .playground-params label { display: flex; align-items: center; gap: 6px; }
+  .playground-params input[type="number"] {
+    width: 58px; font-family: var(--mono); background: var(--panel); border: 1px solid var(--rule);
+    border-radius: 4px; color: var(--ink); padding: 4px 6px; font-size: 12.5px;
+  }
+  .playground-output { margin-top: 12px; }
+  .playground-log {
+    font-family: var(--mono); font-size: 12.5px; white-space: pre-wrap; color: var(--ink-dim);
+    background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px; min-height: 18px;
+  }
+  .playground-log.err { color: var(--trit-neg); }
+  .playground-log.ok { color: var(--trit-pos); }
+  canvas.plot {
+    width: 100%; height: 160px; display: block; background: var(--panel); border: 1px solid var(--rule);
+    border-radius: 8px; margin-bottom: 10px;
+  }
+  table.test-table { margin-top: 4px; }
+  table.test-table td.pass { color: var(--trit-pos); font-weight: 700; font-family: var(--mono); }
+  table.test-table td.fail { color: var(--trit-neg); font-weight: 700; font-family: var(--mono); }
+  table.test-table td, table.test-table th { font-family: var(--mono); font-size: 12.5px; }
+
+  /* ---- Glossary ---- */
+  .glossary-grid { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 16px; }
+  @media (min-width: 640px) { .glossary-grid { grid-template-columns: 1fr 1fr; } }
+  .gterm {
+    border: 1px solid var(--rule); border-radius: 8px; padding: 12px 14px; background: var(--panel);
+  }
+  .gterm .gword { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 13.5px; }
+  .gterm .gdef { font-size: 13.5px; color: var(--ink-dim); margin-top: 4px; }
+  .gterm code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; font-size: 0.92em; }
+
+  /* ---- Type-along: real source, typed line by line ---- */
+  .typealong {
+    border: 1px solid var(--rule); border-radius: 10px; background: var(--code-bg);
+    padding: 16px 18px 18px; margin: 18px 0 8px;
+  }
+  .ta-intro { font-size: 13.5px; color: var(--ink-dim); margin: 0 0 12px; }
+  .ta-source {
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.7; background: var(--panel);
+    border: 1px solid var(--rule); border-radius: 8px; padding: 10px 0; margin-bottom: 14px;
+    max-height: 340px; overflow-y: auto;
+  }
+  .ta-source .row { display: flex; padding: 1px 12px; white-space: pre; }
+  .ta-source .row .ln { color: var(--ink-faint); width: 26px; flex-shrink: 0; text-align: right; margin-right: 12px; user-select: none; }
+  .ta-source .row .code { color: var(--ink-faint); }
+  .ta-source .row.done .code { color: var(--ink-dim); }
+  .ta-source .row.current { background: var(--code-bg); border-radius: 4px; }
+  .ta-source .row.current .code { color: var(--ink); font-weight: 600; }
+  .ta-source .row.current .ln { color: var(--accent); }
+  .ta-progress { font-family: var(--mono); font-size: 11.5px; color: var(--ink-faint); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .ta-inputrow { display: flex; gap: 8px; align-items: stretch; flex-wrap: wrap; }
+  .ta-input {
+    flex: 1 1 260px; font-family: var(--mono); font-size: 13.5px; padding: 10px 12px;
+    background: var(--panel); color: var(--ink); border: 1px solid var(--rule); border-radius: 8px;
+  }
+  .ta-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .ta-input.wrong { border-color: var(--trit-neg); }
+  .ta-btnrow { display: flex; gap: 8px; }
+  .ta-check-btn, .ta-hint-btn, .ta-reset-btn {
+    font-family: var(--mono); font-size: 12px; cursor: pointer; border-radius: 6px; padding: 9px 13px;
+  }
+  .ta-check-btn { background: var(--accent); color: var(--accent-ink); border: none; font-weight: 700; }
+  .ta-check-btn:hover { filter: brightness(1.08); }
+  .ta-hint-btn, .ta-reset-btn { background: transparent; color: var(--ink-faint); border: 1px solid var(--rule); }
+  .ta-hint-btn:hover, .ta-reset-btn:hover { color: var(--ink); }
+  .ta-feedback { font-size: 13px; margin-top: 8px; min-height: 18px; }
+  .ta-feedback.err { color: var(--trit-neg); }
+  .ta-explain {
+    margin-top: 12px; padding: 12px 14px; border-left: 3px solid var(--trit-pos); background: var(--panel);
+    border-radius: 0 8px 8px 0; font-size: 14px; color: var(--ink-dim);
+  }
+  .ta-explain code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; font-size: 0.92em; }
+  .ta-done-banner {
+    margin-top: 12px; padding: 12px 14px; border-left: 3px solid var(--accent); background: var(--panel);
+    border-radius: 0 8px 8px 0; font-size: 14px; color: var(--ink);
+  }
+  .ta-nocode {
+    border: 1px dashed var(--rule); border-radius: 10px; padding: 16px 18px; margin: 18px 0 8px;
+    font-size: 13.5px; color: var(--ink-dim); background: var(--panel);
+  }
+
+  .final-defense {
+    border: 1px solid var(--accent); border-radius: 12px; padding: 24px 26px; background: var(--panel);
+    margin-top: 20px;
+  }
+  .final-defense ol { padding-left: 22px; }
+  .final-defense li { margin-bottom: 14px; font-size: 15px; color: var(--ink-dim); }
+  .final-defense li b { color: var(--ink); }
+
+  footer.end { margin-top: 80px; padding-top: 24px; border-top: 1px solid var(--rule); color: var(--ink-faint); font-size: 12.5px; }
+</style>
+
+<div class="shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="brand"><span class="mark">THE <span>PLAY</span>BOOK</span></div>
+    <div class="brand-sub">tritsystem / gbranaa4-hue — self-study reference</div>
+
+    <div class="progress" id="progress"></div>
+    <div class="progress-label"><span id="progress-count">0 / 23 tracked</span><span>tap a chip to set status</span></div>
+
+    <div class="navgroup-title">Start here</div>
+    <a class="navlink" href="#intro"><span class="n">·</span>How to use this</a>
+
+    <div class="navgroup-title">Read this first</div>
+    <a class="navlink" href="#glossary"><span class="n">·</span>Syntax glossary</a>
+
+    <div class="navgroup-title">Foundations</div>
+    <a class="navlink trit-nav" data-id="f1" href="#f1"><span class="n">01</span>The LIF neuron</a>
+    <a class="navlink trit-nav" data-id="f2" href="#f2"><span class="n">02</span>Ternary computing</a>
+    <a class="navlink trit-nav" data-id="f3" href="#f3"><span class="n">03</span>Reservoir computing</a>
+    <a class="navlink trit-nav" data-id="f4" href="#f4"><span class="n">04</span>Causal reasoning</a>
+    <a class="navlink trit-nav" data-id="f5" href="#f5"><span class="n">05</span>Trend vs. spiking</a>
+    <a class="navlink trit-nav" data-id="f6" href="#f6"><span class="n">06</span>The research discipline</a>
+
+    <div class="navgroup-title">Repos, chronological</div>
+    <a class="navlink trit-nav" data-id="r1" href="#r1"><span class="n">Apr</span>horde-defense-beta</a>
+    <a class="navlink trit-nav" data-id="r2" href="#r2"><span class="n">Jun</span>Spikeling</a>
+    <a class="navlink trit-nav" data-id="r3" href="#r3"><span class="n">Jun</span>quasicrystal-mems-reservoir</a>
+    <a class="navlink trit-nav" data-id="r4" href="#r4"><span class="n">Jun</span>012-trit-search</a>
+    <a class="navlink trit-nav" data-id="r5" href="#r5"><span class="n">Jun</span>tribe</a>
+    <a class="navlink trit-nav" data-id="r6" href="#r6"><span class="n">Jul</span>symmetry-selection-rule</a>
+    <a class="navlink trit-nav" data-id="r7" href="#r7"><span class="n">Jul</span>gbranaa4-hue (profile)</a>
+    <a class="navlink trit-nav" data-id="r8" href="#r8"><span class="n">Jul</span>methodlm</a>
+    <a class="navlink trit-nav" data-id="r9" href="#r9"><span class="n">Jul</span>topological-phononics</a>
+    <a class="navlink trit-nav" data-id="r10" href="#r10"><span class="n">Jul</span>pond-health</a>
+    <a class="navlink trit-nav" data-id="r11" href="#r11"><span class="n">Jul</span>doorcam</a>
+    <a class="navlink trit-nav" data-id="r12" href="#r12"><span class="n">Jul</span>sensor-duo</a>
+    <a class="navlink trit-nav" data-id="r13" href="#r13"><span class="n">Aug</span>spikeling-os</a>
+    <a class="navlink trit-nav" data-id="r14" href="#r14"><span class="n">Aug</span>observe-api</a>
+    <a class="navlink trit-nav" data-id="r15" href="#r15"><span class="n">Aug</span>llama-demo</a>
+    <a class="navlink trit-nav" data-id="r16" href="#r16"><span class="n">Aug</span>server-guard</a>
+
+    <div class="navgroup-title">Close</div>
+    <a class="navlink trit-nav" data-id="synthesis" href="#synthesis"><span class="n">·</span>What unified, what didn't</a>
+    <a class="navlink" href="#defense"><span class="n">·</span>Final defense</a>
+  </nav>
+
+  <main class="main">
+
+    <div class="hero" id="intro">
+      <div class="eyebrow">Self-study reference · 16 repos, chronological, one substrate underneath most of them</div>
+      <h1>The Playbook</h1>
+      <p class="lede">Everything on <b>github.com/tritsystem</b>, taught from scratch, in a shape built to defend — not
+      just recognize. Every claim below is the real, measured number from the actual repo, pulled today: no rounding
+      up, no smoothing over the negative results.</p>
+
+      <div class="howto">
+        <b>How this works.</b> Each topic is a ladder of questions. <b>Read the question, actually try to answer it
+        out loud or on paper before you open it.</b> The revealed answer is a model answer to check yourself against,
+        not the first thing to read. Each repo chapter has two halves: <b>Understand</b> (can you defend why it
+        exists and what it actually proved) and <b>Build from scratch</b> (could you reconstruct its real
+        architecture from an empty folder, in the right order). Foundations come first because most repo chapters
+        assume you already have them.
+        <div class="trit-legend">
+          <div class="trit-legend-item"><span class="trit-legend-dot" style="background:var(--trit-neg)"></span>−1 not started</div>
+          <div class="trit-legend-item"><span class="trit-legend-dot" style="background:var(--trit-zero)"></span>0 reviewing</div>
+          <div class="trit-legend-item"><span class="trit-legend-dot" style="background:var(--trit-pos)"></span>+1 can defend cold</div>
+        </div>
+        <div style="margin-top:10px; font-size:13px;">Every chapter has a tri-state chip in its header — click through −1 / 0 / +1. It's saved in this browser only (<code>localStorage</code>), so it's private and persists next time you open this exact page.</div>
+      </div>
+    </div>
+
+    <!-- ============ GLOSSARY ============ -->
+
+    <section class="chapter" id="glossary">
+      <div class="chapter-head">
+        <div><div class="eyebrow">Read this first</div><h2>Syntax glossary</h2></div>
+      </div>
+      <p class="snapshot">Every repo chapter below has a real, unedited excerpt from that repo's actual source,
+      typed in line by line. Rather than re-explain what a function is fourteen separate times in fourteen
+      languages, here's every generic building block, once, in plain terms. Each per-line explanation later just
+      points back here for the generic part and spends its words on what's actually specific to that line.</p>
+
+      <div class="glossary-grid">
+        <div class="gterm"><div class="gword">variable / assignment</div><div class="gdef">A named box that holds a
+        value. <code>x = 5</code> means "put 5 in the box named x." <code>x -= 1</code> means "take whatever's in x,
+        subtract 1, put the result back in x."</div></div>
+        <div class="gterm"><div class="gword">function / def / fn / func</div><div class="gdef">A named, reusable
+        block of steps. You "call" it by name with some inputs (parameters) and it can hand back a result
+        (return). Every language here spells the keyword differently — <code>def</code> (Python), <code>fn</code>
+        (Rust), <code>func</code> (GDScript) — same idea.</div></div>
+        <div class="gterm"><div class="gword">parameters / arguments</div><div class="gdef">The named inputs a
+        function expects, listed in its parentheses. <code>def f(x, y)</code> — when you call <code>f(3, 4)</code>,
+        <code>x</code> becomes 3 and <code>y</code> becomes 4 for that one run.</div></div>
+        <div class="gterm"><div class="gword">return</div><div class="gdef">Hands a value back to whoever called
+        this function, and stops running the rest of the function immediately.</div></div>
+        <div class="gterm"><div class="gword">type annotation</div><div class="gdef"><code>: float</code>,
+        <code>-&gt; bool</code>, <code>: int</code> — a label saying what kind of value is expected. It's
+        documentation the language itself can check; it doesn't change what the code does.</div></div>
+        <div class="gterm"><div class="gword">if / else / elif</div><div class="gdef">A fork: run this block if a
+        condition is true, otherwise run that one. <code>elif</code> (Python) / <code>else if</code> just chains
+        another condition onto the same fork.</div></div>
+        <div class="gterm"><div class="gword">for loop</div><div class="gdef">Repeats a block once per item in a
+        list, or once per number in a range. <code>for i in range(5)</code> runs the block with
+        <code>i = 0, 1, 2, 3, 4</code>.</div></div>
+        <div class="gterm"><div class="gword">indentation defines blocks</div><div class="gdef">In Python and
+        GDScript, how far a line is indented (not braces) says which <code>if</code>/<code>for</code>/function it
+        belongs to. Two lines indented the same amount under an <code>if</code> both run when that condition is
+        true.</div></div>
+        <div class="gterm"><div class="gword">{ } braces define blocks</div><div class="gdef">Rust and
+        SystemVerilog use curly braces instead of indentation to mark where a block starts and ends — indentation
+        there is just for human readability, the braces are what the language actually reads.</div></div>
+        <div class="gterm"><div class="gword">class / struct</div><div class="gdef">A blueprint bundling related
+        data together (and sometimes the functions that act on it). One "instance" of a class/struct is one real
+        object built from that blueprint — e.g. one specific neuron with its own potential and threshold.</div></div>
+        <div class="gterm"><div class="gword">self / &amp;mut self</div><div class="gdef"><code>self</code> means
+        "the specific instance this function was called on." Rust's <code>&amp;mut self</code> additionally says
+        "and this function is allowed to change that instance's own data," not just read it.</div></div>
+        <div class="gterm"><div class="gword">list / array / Vec</div><div class="gdef">An ordered sequence of
+        values you can loop over, index into (<code>list[0]</code> is the first item), or append to.</div></div>
+        <div class="gterm"><div class="gword">dict / Dictionary / HashMap</div><div class="gdef">A lookup table:
+        stores values under named keys instead of numbered positions. <code>d["foo"]</code> fetches whatever was
+        stored under the key <code>"foo"</code>.</div></div>
+        <div class="gterm"><div class="gword">comment</div><div class="gdef">Text the language ignores entirely —
+        <code>#</code> in Python/GDScript, <code>//</code> in Rust/SystemVerilog. Purely for the human reader.</div></div>
+        <div class="gterm"><div class="gword">docstring / doc comment</div><div class="gdef">A comment placed right
+        after a function's signature (often in triple quotes <code>"""like this"""</code> in Python, or
+        <code>///</code> in Rust) documenting what that function does. Still just a comment — ignored when the code
+        runs.</div></div>
+        <div class="gterm"><div class="gword">f-string / string formatting</div><div class="gdef">A string with
+        <code>{variable}</code> slots that get replaced with real values when it runs. Python:
+        <code>f"V={v}"</code>. Rust's <code>format!(...)</code> does the same thing.</div></div>
+        <div class="gterm"><div class="gword">boolean</div><div class="gdef">A value that's only ever
+        <code>true</code>/<code>True</code> or <code>false</code>/<code>False</code> — the result of any yes/no
+        question the code asks, like <code>v &gt;= threshold</code>.</div></div>
+      </div>
+    </section>
+
+    <!-- ============ FOUNDATIONS ============ -->
+
+    <section class="chapter" id="f1">
+      <div class="chapter-head">
+        <div>
+          <div class="eyebrow">Foundation 01</div>
+          <h2>The LIF spiking neuron</h2>
+        </div>
+        <div class="trit-toggle" data-id="f1"><button data-v="-1">−1</button><button data-v="0">0</button><button data-v="1">+1</button></div>
+      </div>
+      <p class="snapshot">Every Spikeling-based system in this portfolio — <code>tribe</code>, <code>sensor-duo</code>,
+      <code>pond-health</code>, <code>server-guard</code>, <code>spikeling-os</code>, <code>llama-demo</code> — is built
+      on one small mechanism. Get this exactly right and a dozen repos get easier, not harder.</p>
+
+      <h3 class="sub">Understand</h3>
+      <details class="qa"><summary>What is a neuron actually doing, mechanically, on every single tick?</summary>
+        <div class="a">Its <b>membrane potential</b> accumulates weighted input from every synapse and external
+        stimulus that tick. Then it <b>leaks</b> toward zero by a fixed amount (<code>leak</code>). If the resulting
+        potential is at or above <code>threshold</code> <i>and</i> it isn't currently refractory, it fires: emits a
+        spike, resets its potential, and enters a <code>refractory</code> window during which it cannot fire again
+        no matter how much input arrives.</div>
+      </details>
+      <details class="qa"><summary>Why "leaky" specifically — what breaks without the leak term?</summary>
+        <div class="a">Without leak, a plain accumulator, any tiny sustained noisy input eventually crosses threshold
+        no matter how weak, because nothing ever comes back down. Leak is what makes the neuron a <b>coincidence /
+        recency detector</b> instead of a lifetime counter — it can tell "strong signal happening right now" apart
+        from "weak signal that's been dribbling in forever," which a plain sum cannot.</div>
+      </details>
+      <details class="qa"><summary>In this repo's own <code>zombie.gd</code>, one refractory period replaced two separate hand-rolled mechanisms. Which two, and why did one neuron's own physics cover both jobs?</summary>
+        <div class="a">It replaced a <b>retarget-cooldown timer</b> and a separate <b>hysteresis gate</b> class. A
+        neuron in refractory literally cannot re-fire — that alone throttles how often a new target commitment can
+        happen (the timer's job) <i>and</i> prevents flip-flopping between two near-equal targets, because the
+        currently-committed target persists through the whole refractory window instead of being re-evaluated every
+        tick (the hysteresis gate's job). One real mechanism, two jobs, because both jobs were really the same
+        constraint wearing different names.</div>
+      </details>
+      <details class="qa"><summary>Why does bounded, relaxing Hebbian learning matter for keeping two agents' "personalities" distinct over a long session (tribe's Wary vs. Trusting NPCs)?</summary>
+        <div class="a">Synapses strengthen when source and target both fire (Hebbian), but the strengthening is
+        <b>bounded and relaxes back toward an innate value over time</b>. Without that relaxation, weights would
+        saturate in one direction permanently — a long enough session would wash every NPC's behavior into the same
+        saturated extreme, erasing the distinction between a Wary and a Trusting brain that the innate starting
+        weights were built to express.</div>
+      </details>
+
+      <h3 class="sub">Build it from scratch</h3>
+      <ol class="build">
+        <li><b>State:</b> one float, <code>potential = 0</code>, plus a <code>refractory_remaining</code> counter.</li>
+        <li><b>Each tick:</b> <code>potential += sum(weighted synaptic input this tick)</code>, then
+        <code>potential = max(0, potential - leak)</code>.</li>
+        <li><b>Fire check:</b> if <code>potential >= threshold</code> and <code>refractory_remaining <= 0</code>: emit
+        a spike, set <code>potential = 0</code>, set <code>refractory_remaining = refractory</code>.</li>
+        <li>Otherwise: <code>refractory_remaining = max(0, refractory_remaining - 1)</code>.</li>
+        <li><b>Optional Hebbian/STDP:</b> on fire, strengthen synapses whose source fired shortly before this neuron
+        fired; clamp the weight and let it relax back toward its innate strength each tick it isn't reinforced.</li>
+        <li><b>Compile once, run everywhere:</b> Spikeling's actual trick is describing this in one small text grammar
+        (<code>neuron / connect / action / refractory / learn</code>) and generating four different runtimes off the
+        same description — Python for iteration, C for embedded, Verilog for FPGA, GDScript for a game.</li>
+      </ol>
+
+      <div class="playground">
+        <span class="eyebrow">Try it — implement the neuron yourself</span>
+        <p class="playground-intro">Edit <code>stepNeuron</code> below (pre-filled with a working implementation —
+        break it, fix it, change the parameters) and run it against a real input current trace: noisy baseline plus
+        three genuine pulses. A correct LIF neuron stays silent on the noise and fires on the pulses.</p>
+        <textarea class="code-editor" id="lif-code" spellcheck="false">function stepNeuron(potential, refractoryRemaining, inputCurrent, threshold, leak, refractoryPeriod) {
+  if (refractoryRemaining > 0) {
+    return [0, refractoryRemaining - 1, false];
+  }
+  potential += inputCurrent;
+  potential = Math.max(0, potential - leak);
+  if (potential >= threshold) {
+    return [0, refractoryPeriod, true];
+  }
+  return [potential, 0, false];
+}</textarea>
+        <div class="playground-controls">
+          <button class="run-btn" id="lif-run" type="button">▶ Run simulation</button>
+          <div class="playground-params">
+            <label>threshold <input type="number" id="lif-threshold" value="100" /></label>
+            <label>leak <input type="number" id="lif-leak" value="8" /></label>
+            <label>refractory <input type="number" id="lif-refractory" value="5" /></label>
+          </div>
+        </div>
+        <div class="playground-output">
+          <canvas class="plot" id="lif-plot"></canvas>
+          <div class="playground-log" id="lif-log">Click Run to simulate 120 ticks of input current against your neuron.</div>
+        </div>
+      </div>
+
+      <div class="connections">
+        <span class="tag">→ Spikeling</span><span class="tag">→ tribe</span><span class="tag">→ sensor-duo</span>
+        <span class="tag">→ pond-health</span><span class="tag">→ server-guard</span><span class="tag">→ spikeling-os</span>
+      </div>
+    </section>
+
+    <section class="chapter" id="f2">
+      <div class="chapter-head">
+        <div><div class="eyebrow">Foundation 02</div><h2>Ternary computing</h2></div>
+        <div class="trit-toggle" data-id="f2"><button data-v="-1">−1</button><button data-v="0">0</button><button data-v="1">+1</button></div>
+      </div>
+      <p class="snapshot">{−1, 0, +1} instead of {0, 1}. The whole "trit" line — <code>012-trit-search</code>,
+      <code>observe-api</code>, <code>methodlm</code>'s second witness — runs through this idea, and its own
+      README is unusually blunt about where it costs more than it's worth.</p>
+
+      <h3 class="sub">Understand</h3>
+      <details class="qa"><summary>What's the real value proposition of a third state — not "more range," what does it actually buy that binary structurally can't?</summary>
+        <div class="a">Two concrete things. First, <b>balanced ternary is natively signed</b> — a digit string's value
+        can be negative just by leading with a −1, with no separate sign bit or two's-complement trick required.
+        Second, the third state gives you a genuine <b>"unknown / no-consensus" value as a first-class citizen</b>,
+        not an encoding hack bolted onto a 2-state system — which is exactly what a <code>CONSENSUS</code> gate needs:
+        output +1 if every input agrees +1, −1 if every input agrees −1, and 0 otherwise. Binary AND/OR can't express
+        "everyone agrees" vs. "nobody agrees" vs. "mixed" as three distinct outputs without extra machinery.</div>
+      </details>
+      <details class="qa"><summary>Ternary weight compression measured 20× smaller at a 7.35pp accuracy cost. INT8 measured 4× smaller at 0.19pp. What does that comparison actually tell you, beyond "ternary compresses more"?</summary>
+        <div class="a">Compression ratio and accuracy loss are <b>not proportional</b> — 5× more compression bought
+        roughly <i>38×</i> more accuracy damage. That's the real, disclosed reason <code>observe-api</code> ships
+        <b>float32</b> embeddings in production, not ternary, even though it's built directly on the ternary-search
+        codebase: the research thesis and the shipping engineering decision honestly diverge, because the measured
+        numbers said so.</div>
+      </details>
+      <details class="qa"><summary>The RTL consensus gate measured 1.4× fewer instructions than a software fallback. An earlier informal claim said "10×." Why keep the boring number in the README?</summary>
+        <div class="a">Because the 1.4× is what was actually <i>measured</i>, and the 10× was never verified — it was
+        the kind of round, appealing number that spreads informally. Publishing the real 1.4× instead of the nicer-
+        sounding 10× <i>is</i> the portfolio's whole research discipline, condensed into one number.</div>
+      </details>
+
+      <h3 class="sub">Build it from scratch</h3>
+      <ol class="build">
+        <li>Define a <code>trit</code> type over {−1, 0, +1} and pick a storage encoding (2 bits per trit is simplest;
+        packed base-3 is denser).</li>
+        <li>Implement <code>NOT</code> (negate) and <code>ADD</code> with carry, in base 3.</li>
+        <li>Implement the <code>CONSENSUS</code> gate: N trits in, +1 only if all are +1, −1 only if all are −1, 0
+        otherwise — this is the operation where the third state actually earns its keep over binary logic.</li>
+        <li>Write it once in a hardware description language (SystemVerilog: <code>trit_pkg</code>,
+        <code>trit_register</code>, <code>trit_add</code>, <code>consensus_gate</code>) and simulate against a real
+        testbench — the actual repo runs <b>36/36</b> real cases clean.</li>
+        <li>Be explicit about the honest boundary: simulated-in-<code>iverilog</code> is not the same claim as
+        synthesized-on-real-silicon. Say which one you've actually done.</li>
+      </ol>
+
+      <div class="playground">
+        <span class="eyebrow">Try it — implement the CONSENSUS gate yourself</span>
+        <p class="playground-intro">Edit <code>consensus</code> below, then run it against a real test table. It
+        should return <code>+1</code> only if every trit agrees <code>+1</code>, <code>−1</code> only if every trit
+        agrees <code>−1</code>, and <code>0</code> for anything mixed.</p>
+        <textarea class="code-editor" id="trit-code" spellcheck="false">function consensus(trits) {
+  var allPos = trits.every(function(t) { return t === 1; });
+  var allNeg = trits.every(function(t) { return t === -1; });
+  if (allPos) return 1;
+  if (allNeg) return -1;
+  return 0;
+}</textarea>
+        <div class="playground-controls">
+          <button class="run-btn" id="trit-run" type="button">▶ Run test cases</button>
+        </div>
+        <div class="playground-output">
+          <table class="test-table" id="trit-table"></table>
+          <div class="playground-log" id="trit-log">Click Run to test your gate against 8 real cases.</div>
+        </div>
+      </div>
+
+      <div class="connections">
+        <span class="tag">→ 012-trit-search</span><span class="tag">→ observe-api (declined)</span>
+        <span class="tag">→ methodlm (tritkit)</span><span class="tag">→ tribe (consensus-gate research)</span>
+      </div>
+    </section>
+
+    <section class="chapter" id="f3">
+      <div class="chapter-head">
+        <div><div class="eyebrow">Foundation 03</div><h2>Physical / analog reservoir computing</h2></div>
+        <div class="trit-toggle" data-id="f3"><button data-v="-1">−1</button><button data-v="0">0</button><button data-v="1">+1</button></div>
+      </div>
+      <p class="snapshot">Underlies the whole physics research cluster: <code>quasicrystal-mems-reservoir</code>,
+      <code>symmetry-selection-rule</code>, <code>topological-phononics</code>.</p>
+
+      <h3 class="sub">Understand</h3>
+      <details class="qa"><summary>What is a "reservoir," mechanically, in one sentence — not the brain metaphor?</summary>
+        <div class="a">A <b>fixed, untrained, sufficiently nonlinear dynamical system</b> that you drive with an input
+        signal and read out linearly. You never train the reservoir itself — only a cheap linear readout on top of
+        it. Its whole job is to nonlinearly mix and remember recent input history richly enough that a linear readout
+        can extract something useful from that mixture.</div>
+      </details>
+      <details class="qa"><summary>Why does breaking D4 symmetry on a MEMS plate revive computation, mechanically — what does the ∫φ³ mode overlap have to do with anything?</summary>
+        <div class="a">∫φ³ (the cubic mode overlap) <i>is</i> the strength of the nonlinear term that lets an
+        oscillator actually mix input information instead of just linearly filtering it — a purely linear reservoir
+        can't compute anything a linear filter couldn't. Under exact D4 symmetry that overlap <b>vanishes for 7 of 8
+        modes</b> (proved by group theory, confirmed against real finite-element mode shapes to 1 part in 10⁹),
+        silencing most of the reservoir's computational capacity. Aperiodic perforation breaks the symmetry and
+        revives those modes.</div>
+      </details>
+      <details class="qa"><summary>State topological-phononics' real result precisely — not the sound-bite version.</summary>
+        <div class="a">Topological structure protects a reservoir against a dead element <b>exactly when, and only
+        when, chiral symmetry holds</b>. The advantage is several-fold in the idealized model, measurably weaker
+        under real nonlinearity, weaker again under noise, beaten outright by plain redundancy as an alternative
+        strategy, and only marginal / statistically inconclusive in a realistic damped device model. <b>The idealized
+        magnitude does not transfer to hardware — the chiral boundary condition is the part that does.</b></div>
+      </details>
+
+      <h3 class="sub">Build it from scratch</h3>
+      <ol class="build">
+        <li>Build or simulate a fixed nonlinear dynamical system: coupled oscillators, an SSH chain, or a real
+        finite-element plate model.</li>
+        <li>Drive it with an input stream and record its internal state trajectory over time.</li>
+        <li>Train <i>only</i> a linear readout (ridge regression) mapping recorded states to a target task (linear
+        memory, NARMA10).</li>
+        <li>To test a defect-tolerance hypothesis: kill one element, re-measure task performance, compare two coupling
+        regimes (e.g. topological vs. trivial dimerization).</li>
+        <li><b>Pre-register the hypothesis and the exact test before running it</b> — this is not optional
+        housekeeping, it's the actual method this whole cluster of repos was built under.</li>
+      </ol>
+      <div class="connections">
+        <span class="tag">→ quasicrystal-mems-reservoir</span><span class="tag">→ symmetry-selection-rule</span>
+        <span class="tag">→ topological-phononics</span><span class="tag">→ spikeling-os (Milestone 4)</span>
+      </div>
+    </section>
+
+    <section class="chapter" id="f4">
+      <div class="chapter-head">
+        <div><div class="eyebrow">Foundation 04</div><h2>Causal reasoning: adjustment &amp; robustness value</h2></div>
+        <div class="trit-toggle" data-id="f4"><button data-v="-1">−1</button><button data-v="0">0</button><button data-v="1">+1</button></div>
+      </div>
+      <p class="snapshot">The engine under <code>methodlm</code> and <code>llama-demo</code>'s Root Cause Copilot.</p>
+
+      <h3 class="sub">Understand</h3>
+      <details class="qa"><summary>Use the real measured sex/diabetes example: why is raw correlation actively dangerous, not just imprecise?</summary>
+        <div class="a"><code>sex</code> ranked <b>dead last</b> by both raw correlation (+0.043) and Random Forest
+        importance (0.012) — both standard tools said "irrelevant, ignore it." Backdoor adjustment showed it actually
+        <b>survives</b> with RV = 0.17, and its adjusted effect is <b>sign-flipped and an order of magnitude larger</b>
+        (−0.19). Its real negative effect was being cancelled in the raw number by its positive correlation with three
+        other genuine drivers (bmi, bp, ltg). Trusting the naive ranking would mean discarding a real driver entirely.</div>
+      </details>
+      <details class="qa"><summary>What does a robustness value of 0.31 actually tell you that a p-value can't?</summary>
+        <div class="a">RV measures <b>how strong an unmeasured, hidden confounder would need to be</b> to fully
+        explain away the observed effect. RV &lt; 0.10 means the finding is fragile — a weak hidden confounder could
+        kill it. A p-value is a statement about the data you collected; RV is a statement about robustness to the
+        data you <i>didn't</i> collect.</div>
+      </details>
+      <details class="qa"><summary>Why does "just adjust for everything you've got" fail as a strategy?</summary>
+        <div class="a">Conditioning on a <b>collider</b> — a variable caused by both the treatment and the outcome —
+        <i>introduces</i> bias rather than removing it (the "Table 2 fallacy"). This is why the harness runs a
+        collider/mediator audit before adjustment instead of blindly controlling for every available column.</div>
+      </details>
+
+      <h3 class="sub">Build it from scratch</h3>
+      <ol class="build">
+        <li>Implement raw correlation as the visible baseline — keep it, don't hide it, so any improvement over it is
+        honestly checkable.</li>
+        <li>Implement backdoor adjustment: regress the target on treatment + named confounders, read off the
+        treatment's coefficient.</li>
+        <li>Implement a Cinelli–Hazlett <b>robustness value</b> on top of that adjustment.</li>
+        <li>Implement a <b>collider check</b>: is this control variable downstream of both treatment and outcome? If
+        so, flag it — don't adjust for it blindly.</li>
+        <li>Enforce pre-registration <i>in code</i>: no <code>FINAL</code> verdict accepted until at least one real
+        test (<code>ADJUST</code> / <code>STRAT</code> / <code>RUN</code>) has actually executed. Make the discipline
+        a hard gate, not a suggestion.</li>
+      </ol>
+      <div class="connections">
+        <span class="tag">→ methodlm</span><span class="tag">→ llama-demo / Root Cause Copilot</span>
+      </div>
+    </section>
+
+    <section class="chapter" id="f5">
+      <div class="chapter-head">
+        <div><div class="eyebrow">Foundation 05</div><h2>Trend vs. spiking: the dual-detector pattern</h2></div>
+        <div class="trit-toggle" data-id="f5"><button data-v="-1">−1</button><button data-v="0">0</button><button data-v="1">+1</button></div>
+      </div>
+      <p class="snapshot">Born in <code>pond-health</code>, extracted as <code>sensor-duo</code>, reused in
+      <code>server-guard</code>.</p>
+
+      <h3 class="sub">Understand</h3>
+      <details class="qa"><summary>What's the precise tradeoff between the two detectors — not "one's better," the real mechanism?</summary>
+        <div class="a">The <b>trend detector</b> fits a line through recent readings and projects it forward — real
+        early warning, at the cost of sometimes alerting on a trend that reverses before it actually crosses the
+        danger line. The <b>spiking detector</b> (an LIF neuron, Foundation 01) never does that: a single noisy
+        reading can't cross threshold on its own — it only fires once several consecutive stressed readings genuinely
+        integrate past threshold, or instantly on a truly critical one. But it has <i>no</i> forecasting ability; it
+        only confirms a problem that's already real and sustained.</div>
+      </details>
+      <details class="qa"><summary>Neither one is "strictly better." What's the actual design implication for how you use both together?</summary>
+        <div class="a">Run both, and treat <b>disagreement between them as the interesting signal</b> — that's the
+        explicit stated design intent, not an afterthought bolted on because two detectors seemed fancier than one.</div>
+      </details>
+
+      <h3 class="sub">Build it from scratch</h3>
+      <ol class="build">
+        <li><code>TrendDetector</code>: rolling window per channel, linear fit, project forward, estimate
+        threshold-crossing time.</li>
+        <li><code>SpikingDetector</code>: map each channel's stress level to a stimulus current into a dedicated LIF
+        neuron; let leak/refractory naturally reject single-sample noise.</li>
+        <li>Log both to SQLite; generate a Grafana dashboard reading straight from it.</li>
+        <li><b>Generalize</b>: parametrize over an arbitrary set of named channels with a per-channel
+        <code>Range(stress_low, stress_high, critical_high)</code> instead of hardcoding five pond-specific
+        parameters — this exact step is the real <code>sensor-duo</code> extraction from <code>pond-health</code>.</li>
+      </ol>
+      <div class="connections">
+        <span class="tag">→ pond-health</span><span class="tag">→ sensor-duo</span><span class="tag">→ server-guard</span>
+      </div>
+    </section>
+
+    <section class="chapter" id="f6">
+      <div class="chapter-head">
+        <div><div class="eyebrow">Foundation 06</div><h2>The research discipline itself</h2></div>
+        <div class="trit-toggle" data-id="f6"><button data-v="-1">−1</button><button data-v="0">0</button><button data-v="1">+1</button></div>
+      </div>
+      <p class="snapshot">This is the connective tissue under every chapter that follows — more important than any
+      single repo.</p>
+
+      <h3 class="sub">Understand</h3>
+      <details class="qa"><summary>Pick spikeling-os's Milestone 4 negative result. Why does reporting it honestly make the rest of the portfolio <i>more</i> credible, not less?</summary>
+        <div class="a">Trivial coupling beat topological coupling on scheduling fairness (0.860 vs. 0.790) — the
+        <b>opposite</b> of the hypothesis. It was reported exactly as measured, with an honest root-cause guess (the
+        coupling term was deliberately kept weak to avoid instability, and there's a real open question whether a
+        discrete winner-take-all accumulator is even the right dynamical regime for topological protection at all).
+        A portfolio that only ever reports confirmations can't be trusted when it <i>does</i> report a win — the
+        negative results are precisely what makes the positive ones worth believing.</div>
+      </details>
+      <details class="qa"><summary>What specific, repeatable process produces this kind of honesty — not the personality trait, the mechanism?</summary>
+        <div class="a"><b>Pre-registration.</b> The hypothesis and the exact test are written down <i>before</i> the
+        experiment runs, which removes the room to quietly redefine "success" after seeing an inconvenient result.
+        The same discipline is enforced in software by <code>methodlm</code>'s <code>FINAL</code>-verdict gate — it's
+        not just a research habit, it's a thing you can point to in actual code.</div>
+      </details>
+
+      <div class="connections">
+        <span class="tag">underlies everything below</span>
+      </div>
+    </section>
+
+    <!-- ============ REPOS ============ -->
+
+    <section class="chapter" id="r1">
+      <div class="chapter-head">
+        <div><div class="eyebrow">Repo · 2026-04-27 · Godot 3D · GDScript</div><h2>horde-defense-beta</h2></div>
+        <div class="trit-toggle" data-id="r1"><button data-v="-1">−1</button><button data-v="0">0</button><button data-v="1">+1</button></div>
+      </div>
+      <div class="chapter-meta"><a href="https://github.com/tritsystem/horde-defense-beta" target="_blank" rel="noopener">github.com/tritsystem/horde-defense-beta</a></div>
+      <p class="snapshot">The earliest repo in the whole portfolio. A lane-based horde-defense game — and a live
+      lesson in verifying claims instead of trusting them.</p>
+
+      <div class="callout"><b>Verify-before-you-repeat, live.</b> GitHub's own description for this repo says
+      "deck-building creep system." The pushed <code>main</code> branch has <i>no README</i> and, checked directly
+      against the real file tree today, no deck/card files at all — no <code>CreepDeckUI.gd</code>, no
+      <code>HiveCluster.gd</code>. That code exists only on a separate, never-merged local branch on a different
+      checkout. The description is marketing copy someone wrote once; the file tree is ground truth.</div>
+
+      <h3 class="sub">Understand</h3>
+      <details class="qa"><summary>How do you actually verify a claim about a codebase, rather than trust the description text?</summary>
+        <div class="a">Read the real file tree, or grep for the specific files that feature would require. A
+        description is a claim someone made at some point in time; only the code currently on the branch you're
+        looking at is ground truth.</div>
+      </details>
+      <details class="qa"><summary>This repo predates everything else by months, but was never merged with its own most-hyped feature. What does that say about trusting "current state" from old notes or memory?</summary>
+        <div class="a">Session notes and memory are snapshots frozen at write time. Anything they claim about
+        current repo state needs to be re-checked against the live repo before you repeat it, act on it, or teach it
+        to someone else as fact.</div>
+      </details>
+
+      <h3 class="sub">Build it from scratch</h3>
+      <ol class="build">
+        <li>Godot project skeleton, main scene.</li>
+        <li>Lane-based spawner — enemies march down fixed lanes.</li>
+        <li>Turret placement + <code>team_id</code>-based target filtering (never target your own side or other
+        towers).</li>
+        <li>Wave / horde management.</li>
+        <li>Base health + loss condition.</li>
+        <li>Player FPS controller and aiming.</li>
+        <li>A progression layer (talents / upgrades) on top once the core loop works.</li>
+      </ol>
+
+      <div class="typealong" id="ta-r1"></div>
+
+      <div class="connections">
+        <span class="tag">source of the O(n²) target-scan fix pattern</span>
+        <span class="tag">source of the Spikeling-brain-replacement pattern reused in tribe</span>
+      </div>
+    </section>
+
+    <section class="chapter" id="r2">
+      <div class="chapter-head">
+        <div><div class="eyebrow">Repo · 2026-06-23 · C / Python / Verilog / GDScript</div><h2>Spikeling</h2></div>
+        <div class="trit-toggle" data-id="r2"><button data-v="-1">−1</button><button data-v="0">0</button><button data-v="1">+1</button></div>
+      </div>
+      <div class="chapter-meta"><a href="https://github.com/tritsystem/Spikeling" target="_blank" rel="noopener">github.com/tritsystem/Spikeling</a></div>
+      <p class="snapshot">The neuromorphic DSL + runtime. Write one <code>.spk</code> file, run it on four backends.
+      The substrate under most of the rest of this playbook.</p>
+
+      <h3 class="sub">Understand</h3>
+      <details class="qa"><summary>Why compile one description to four backends instead of writing four separate implementations?</summary>
+        <div class="a">The <code>.spk</code> file is the single source of truth for topology and parameters. Each
+        backend only needs a codegen/interpreter for the same small grammar, instead of four hand-written
+        implementations of neuron/synapse semantics silently drifting apart from each other over time.</div>
+      </details>
+      <details class="qa"><summary>Four neuron types exist — LIF, Izhikevich, AdEx, Resonator. When do you reach for Resonator over plain LIF?</summary>
+        <div class="a">Resonator is a <b>damped oscillator that responds only to input near its own frequency</b> —
+        a frequency-domain primitive, not a threshold-crossing one. Reach for it when you want frequency-selective
+        response (this is what the acoustic noise-cancellation work in this portfolio actually uses).</div>
+      </details>
+
+      <h3 class="sub">Build it from scratch</h3>
+      <ol class="build">
+        <li>Design the <code>.spk</code> grammar: <code>neuron / connect / action / refractory / learn</code>.</li>
+        <li>Write a parser/compiler for it.</li>
+        <li>Implement the Python interactive runtime as the reference implementation (Foundation 01's LIF step).</li>
+        <li>Add STDP learning on top.</li>
+        <li>Add a C codegen backend for embedded targets.</li>
+        <li>Add a Verilog codegen backend for FPGA.</li>
+        <li>Add a GDScript backend (a compact <code>synapse SRC -&gt; DST weight=N</code> variant) for Godot game AI.</li>
+      </ol>
+
+      <div class="typealong" id="ta-r2"></div>
+
+      <div class="connections">
+        <span class="tag">← Foundation 01</span><span class="tag">→ tribe</span><span class="tag">→ sensor-duo</span>
+        <span class="tag">→ pond-health</span><span class="tag">→ server-guard</span><span class="tag">→ spikeling-os</span>
+        <span class="tag">→ llama-demo</span><span class="tag">→ this repo's zombie.gd / Enemy.gd</span>
+      </div>
+    </section>
+
+    <section class="chapter" id="r3">
+      <div class="chapter-head">
+        <div><div class="eyebrow">Repo · 2026-06-23 · Python / FEM</div><h2>quasicrystal-mems-reservoir</h2></div>
+        <div class="trit-toggle" data-id="r3"><button data-v="-1">−1</button><button data-v="0">0</button><button data-v="1">+1</button></div>
+      </div>
+      <div class="chapter-meta"><a href="https://github.com/tritsystem/quasicrystal-mems-reservoir" target="_blank" rel="noopener">github.com/tritsystem/quasicrystal-mems-reservoir</a></div>
+      <p class="snapshot">Same day as Spikeling. The FEM study behind Foundation 03's D4 selection rule, replicated on
+      three separate substrate classes.</p>
+
+      <h3 class="sub">Understand</h3>
+      <details class="qa"><summary>"Confirmed to 1 part in 10⁹" — confirmed against what, exactly?</summary>
+        <div class="a">The group-theory <i>proof</i> that ∫φ³ vanishes for non-totally-symmetric D4 modes was checked
+        numerically against real finite-element-computed mode shapes. It's an independent numerical confirmation of
+        an analytic prediction, not just the analytic derivation standing alone.</div>
+      </details>
+      <details class="qa"><summary>The rule only replicated on other substrates once a "capability gate" was satisfied first. What does that precondition tell you about how strong the underlying claim really is?</summary>
+        <div class="a">The selection rule isn't an unconditional law — it's conditional on the substrate already
+        being capable enough to show any nonlinear computation at all. State the boundary honestly: "the rule holds
+        given a capability floor," not "the rule always holds."</div>
+      </details>
+
+      <h3 class="sub">Build it from scratch</h3>
+      <ol class="build">
+        <li>Homogenized finite-element plate-bending solver: mesh, boundary conditions, modal analysis.</li>
+        <li>Compute mode shapes/frequencies for a perforated (quasicrystal-pattern) plate.</li>
+        <li>Derive, then numerically verify, the D4 point-group selection rule on ∫φ³ mode overlaps.</li>
+        <li>Wire the mode data into a reservoir readout — train only a linear readout on the modal response to an
+        input signal.</li>
+        <li>Test generality by replicating on further substrate classes (a coupled resonator bank, a discrete lattice
+        ring) — pre-register a capability-gate check <i>before</i> each replication attempt.</li>
+      </ol>
+
+      <div class="typealong" id="ta-r3"></div>
+
+      <div class="connections">
+        <span class="tag">← Foundation 03</span><span class="tag">→ symmetry-selection-rule</span>
+        <span class="tag">→ topological-phononics</span>
+      </div>
+    </section>
+
+    <section class="chapter" id="r4">
+      <div class="chapter-head">
+        <div><div class="eyebrow">Repo · 2026-06-29 · Python</div><h2>012-trit-search</h2></div>
+        <div class="trit-toggle" data-id="r4"><button data-v="-1">−1</button><button data-v="0">0</button><button data-v="1">+1</button></div>
+      </div>
+      <div class="chapter-meta"><a href="https://github.com/tritsystem/012-trit-search" target="_blank" rel="noopener">github.com/tritsystem/012-trit-search</a></div>
+      <p class="snapshot">Ternary computing end to end — RTL sim → CPU emulator → <b>OBSERVE</b>, the actual shipping
+      product. The single richest repo for measured, both-ways-honest results.</p>
+
+      <table class="wrap-x">
+        <tr><th>Claim</th><th>Status</th><th>Real number</th></tr>
+        <tr><td>Fine-tuned MiniLM beats baseline on code search</td><td>Confirmed</td><td class="num">96% vs 92% (hard) · 92% vs 76.7% (real OSS)</td></tr>
+        <tr><td>Ternary weight compression works, but costs accuracy</td><td>Confirmed</td><td class="num">20× compressed, −7.35pp vs. INT8's 4×/−0.19pp</td></tr>
+        <tr><td>"Resonating cell" hybrid improves decision-making generally</td><td>Disproven</td><td class="num">wins only 1 of 5 tests (genuinely time-varying signal)</td></tr>
+        <tr><td>Triadic architecture beats pretrained models on embeddings</td><td>Disproven</td><td class="num">60% vs. MiniLM's 96%</td></tr>
+        <tr><td>Ternary CONSENSUS beats software fallback</td><td>Confirmed, corrected</td><td class="num">1.4× fewer instructions (not the informal "10×")</td></tr>
+      </table>
+
+      <h3 class="sub">Understand</h3>
+      <details class="qa"><summary>OBSERVE, the shipping product, does not use ternary weights. Why not, given the whole repo is about ternary computing?</summary>
+        <div class="a">The measured tradeoff from Foundation 02: 20× ternary compression cost 7.35pp accuracy vs.
+        INT8's 4× costing only 0.19pp. The research thesis and the shipping engineering decision honestly diverge
+        because the numbers said so — not a contradiction, a disclosed tradeoff.</div>
+      </details>
+      <details class="qa"><summary>Under what measured condition does plain grep actually beat semantic search?</summary>
+        <div class="a">When the exact identifier is already known: grep wins outright, 5/5 vs. 3/5 recall. Semantic
+        search's real advantage narrows specifically to genuine vocabulary mismatches — legacy renames, domain
+        jargon, orphaned references — not general natural-language queries once "obvious synonym" queries (which
+        good naming already makes grep-guessable) are excluded.</div>
+      </details>
+      <details class="qa"><summary>The 66.3% token-reduction feature has a cost. What was it, and what actually fixed it?</summary>
+        <div class="a">A reproduced case showed dedup/relevance-cutoff dropping a correct answer — 86% vs. 71%
+        combined recall. Traced to <b>blind character-window chunking</b>; switching to <b>function-boundary
+        chunking</b> recovered chunk-level recall from 29% to 86% at zero query-time cost.</div>
+      </details>
+
+      <h3 class="sub">Build it from scratch</h3>
+      <ol class="build">
+        <li>Balanced-ternary CPU emulator + assembler.</li>
+        <li>SystemVerilog RTL: trit register, NOT/ADD, the consensus gate — verified in simulation (Foundation 02).</li>
+        <li>Fine-tune an embedding model (MiniLM) on real code for semantic search.</li>
+        <li>Build the search engine: function-boundary chunking, embed, index, query.</li>
+        <li>Extract <code>SearchEngine</code> into a standalone module with no GUI dependency — this exact class is
+        what <code>observe-api</code> later imports headless.</li>
+        <li>Wrap as a desktop GUI app (OBSERVE) plus an MCP server.</li>
+      </ol>
+
+      <div class="typealong" id="ta-r4"></div>
+
+      <div class="connections">
+        <span class="tag">← Foundation 02</span><span class="tag">→ observe-api</span><span class="tag">→ methodlm (tritkit)</span>
+        <span class="tag">→ tribe (consensus scoping-rule research)</span>
+      </div>
+    </section>
+
+    <section class="chapter" id="r5">
+      <div class="chapter-head">
+        <div><div class="eyebrow">Repo · 2026-06-30 · Godot 4.6 · GDScript</div><h2>tribe</h2></div>
+        <div class="trit-toggle" data-id="r5"><button data-v="-1">−1</button><button data-v="0">0</button><button data-v="1">+1</button></div>
+      </div>
+      <div class="chapter-meta"><a href="https://github.com/tritsystem/tribe" target="_blank" rel="noopener">github.com/tritsystem/tribe</a></div>
+      <p class="snapshot">Every NPC — tribe members, animals, rival tribes — runs a small Spikeling LIF brain instead
+      of a behavior tree. Trust ranks gate risky orders; inter-tribe war converges with no forced winner.</p>
+
+      <h3 class="sub">Understand</h3>
+      <details class="qa"><summary>One brain per AI tribe, not per individual member. Why that granularity, specifically?</summary>
+        <div class="a">Cost. Per-member brains at "Epic" scale would hit the same O(n) blowup class as
+        horde-defense-beta's turret target-scan bug. One brain per tribe is cheap enough to run many tribes
+        simultaneously.</div>
+      </details>
+      <details class="qa"><summary>What actually keeps the tribe DSL cheap at scale with many tribe instances sharing archetypes?</summary>
+        <div class="a">Parsed <code>.tribe</code> results are cached per archetype name — many tribe instances share
+        one parse instead of every instance re-parsing the same text file.</div>
+      </details>
+
+      <h3 class="sub">Build it from scratch</h3>
+      <ol class="build">
+        <li>LIF brain loader per NPC type (same small text grammar family as Spikeling, Foundation 01).</li>
+        <li>Trust system: feeding raises trust; rank thresholds (Stranger → Devoted) gate order acceptance.</li>
+        <li>Tribe DSL parser for plain-text <code>.tribe</code> archetype files, with a per-archetype-name parse
+        cache.</li>
+        <li>Procedural "aliveness" animation layer driven by the brain's own tension/mood output channels.</li>
+        <li>Inter-tribe war: physical marching war parties, siege logic, no-forced-winner convergence.</li>
+        <li>Scale presets (Skirmish / Standard / Epic) — profile physics-frame ms <i>first</i> before guessing at
+        fixes; the real bottlenecks (LOD, hive-brain granularity, MultiMesh rendering) only show up at Epic.</li>
+      </ol>
+
+      <div class="typealong" id="ta-r5"></div>
+
+      <div class="connections">
+        <span class="tag">← Spikeling</span><span class="tag">← Foundation 01</span>
+        <span class="tag">tested by 012-trit-search's consensus scoping-rule research</span>
+      </div>
+    </section>
+
+    <section class="chapter" id="r6">
+      <div class="chapter-head">
+        <div><div class="eyebrow">Repo · 2026-07-03 · Report</div><h2>symmetry-selection-rule</h2></div>
+        <div class="trit-toggle" data-id="r6"><button data-v="-1">−1</button><button data-v="0">0</button><button data-v="1">+1</button></div>
+      </div>
+      <div class="chapter-meta"><a href="https://github.com/tritsystem/symmetry-selection-rule" target="_blank" rel="noopener">github.com/tritsystem/symmetry-selection-rule</a></div>
+      <p class="snapshot">Not separate software — the formal lab-report write-up of <code>quasicrystal-mems-reservoir</code>'s
+      D4 selection-rule result, published as its own citable artifact.</p>
+
+      <h3 class="sub">Understand</h3>
+      <details class="qa"><summary>Why publish the same result both as a README section inside the code repo <i>and</i> a separate standalone report repo?</summary>
+        <div class="a">It separates a citable, fixed research artifact (a report you can point a DOI at) from the
+        living code repo that keeps evolving underneath it — a defensible practice for anything meant to be cited by
+        someone else later.</div>
+      </details>
+      <details class="qa"><summary>"Defend it" check — no build steps here, this is a document. Can you?</summary>
+        <div class="a">Being able to restate the D4 proof and its finite-element confirmation from Chapter r3, in your
+        own words, with the PDF closed, <i>is</i> defending this chapter. There's no separate mechanism to build.</div>
+      </details>
+
+      <div class="ta-nocode">No type-along here — this repo is a PDF lab report, not software. There's no source
+      to type. Its "code" is r3's <code>cube_integral</code> walkthrough above.</div>
+
+      <div class="connections"><span class="tag">= r3's result, published</span></div>
+    </section>
+
+    <section class="chapter" id="r7">
+      <div class="chapter-head">
+        <div><div class="eyebrow">Repo · 2026-07-06 · Profile</div><h2>gbranaa4-hue (profile repo)</h2></div>
+        <div class="trit-toggle" data-id="r7"><button data-v="-1">−1</button><button data-v="0">0</button><button data-v="1">+1</button></div>
+      </div>
+      <div class="chapter-meta"><a href="https://github.com/tritsystem/gbranaa4-hue" target="_blank" rel="noopener">github.com/tritsystem/gbranaa4-hue</a> · now under the <code>tritsystem</code> account; repo itself not yet renamed</div>
+      <p class="snapshot">The special repo whose README renders on the GitHub profile page. Bio: <i>"Independent
+      researcher in unconventional computing… Honest measurements, negative results included."</i></p>
+
+      <h3 class="sub">Understand</h3>
+      <details class="qa"><summary>Why does a one-line bio deserve its own chapter in a technical playbook?</summary>
+        <div class="a">It's a public, standing <b>pre-registration of your own research standard</b> — anyone can
+        check any other repo against that stated bar: does this negative result get reported as carefully as a
+        positive one? It's Foundation 06 made externally, publicly accountable.</div>
+      </details>
+
+      <div class="ta-nocode">No type-along here either — a profile README isn't source code to type. Its
+      "code" is really every other chapter's tri-state chip: this bio is the standard the whole rest of the
+      playbook gets checked against.</div>
+
+      <div class="connections"><span class="tag">← Foundation 06</span><span class="tag">the standard every other chapter is checked against</span></div>
+    </section>
+
+    <section class="chapter" id="r8">
+      <div class="chapter-head">
+        <div><div class="eyebrow">Repo · 2026-07-10 · Python</div><h2>methodlm</h2></div>
+        <div class="trit-toggle" data-id="r8"><button data-v="-1">−1</button><button data-v="0">0</button><button data-v="1">+1</button></div>
+      </div>
+      <div class="chapter-meta"><a href="https://github.com/tritsystem/methodlm" target="_blank" rel="noopener">github.com/tritsystem/methodlm</a> · sibling to OBSERVE</div>
+      <p class="snapshot">A verifiable causal-reasoning harness (Foundation 04). On a confounded-scenario benchmark, its
+      backdoor-adjustment test cuts false causal claims from <b>100% to ~1%</b> while keeping 100% detection of the
+      true cause.</p>
+
+      <h3 class="sub">Understand</h3>
+      <details class="qa"><summary>"The discipline, not the model, is the product." What enforces that, in actual code?</summary>
+        <div class="a">The <b>same</b> pre-registration gate — no <code>FINAL</code> without a real
+        <code>ADJUST</code>/<code>STRAT</code>/<code>RUN</code> test — applies whether the backend is a small local
+        model or a frontier Claude model. The gate, not the model's own judgment, is what produces trustworthy
+        output.</div>
+      </details>
+      <details class="qa"><summary>What's the demonstrated failure mode of "the same model, minus the method" in the head-to-head race mode?</summary>
+        <div class="a">The plain LLM concludes "temperature is causing the error — install cooling" from spurious
+        correlation. MethodLM tests it, finds the real humidity confound, and correctly says cooling is unnecessary.
+        Identical model — only the method differs.</div>
+      </details>
+
+      <h3 class="sub">Build it from scratch</h3>
+      <ol class="build">
+        <li>Ingestion/featurization layer: arbitrary data (CSV/JSON/Parquet/SQLite/…) → one canonical numeric table +
+        target column, with every coercion step logged to the ledger.</li>
+        <li><code>CORR</code> / <code>RUN</code> / <code>STRAT</code> / <code>ADJUST</code> / <code>ATTR</code> tool
+        implementations (Foundation 04).</li>
+        <li>Cinelli–Hazlett robustness value + collider audit layered on top of <code>ADJUST</code>.</li>
+        <li>Pre-registration enforcement gate — no <code>FINAL</code> without a real prior test.</li>
+        <li>Swappable reasoning backend (local GGUF vs. Claude API) sitting behind the <i>same</i> gate.</li>
+        <li>Optional ternary "second witness" (<code>tritkit</code> two-timescale readout) for independent
+        per-column evidence.</li>
+      </ol>
+
+      <div class="typealong" id="ta-r8"></div>
+
+      <div class="connections">
+        <span class="tag">← Foundation 04</span><span class="tag">← 012-trit-search (tritkit)</span>
+        <span class="tag">→ llama-demo / Root Cause Copilot</span>
+      </div>
+    </section>
+
+    <section class="chapter" id="r9">
+      <div class="chapter-head">
+        <div><div class="eyebrow">Repo · 2026-07-11 · Python · DOI published</div><h2>topological-phononics</h2></div>
+        <div class="trit-toggle" data-id="r9"><button data-v="-1">−1</button><button data-v="0">0</button><button data-v="1">+1</button></div>
+      </div>
+      <div class="chapter-meta"><a href="https://github.com/tritsystem/topological-phononics" target="_blank" rel="noopener">github.com/tritsystem/topological-phononics</a></div>
+      <p class="snapshot">A pre-registered SSH-reservoir simulation study, taken down the scoping ladder until the
+      claim stopped giving.</p>
+
+      <h3 class="sub">Understand</h3>
+      <details class="qa"><summary>Name the four separate, independently-tested reasons the idealized ~5× advantage shouldn't be expected to survive real hardware.</summary>
+        <div class="a">(1) measurably weaker under real nonlinearity, (2) weaker again under noise, (3) beaten
+        outright by generic redundancy as an alternative strategy, (4) only marginal / statistically inconclusive in
+        the realistic damped/Duffing device model — four separate degradations, tested one at a time, not one vague
+        "harder in reality."</div>
+      </details>
+      <details class="qa"><summary>What does "taken down the full scoping ladder until the claim stopped giving" mean as a method, concretely?</summary>
+        <div class="a">Keep narrowing the claim's stated conditions — idealized → nonlinear → noisy → device-realistic
+        — until you find the exact point where it stops holding, and report <i>that boundary</i> as the real result,
+        instead of the original broad claim.</div>
+      </details>
+
+      <h3 class="sub">Build it from scratch</h3>
+      <ol class="build">
+        <li>Tight-binding SSH resonator chain with dimerized coupling (<code>v = 1−g</code>, <code>w = 1+g</code>).</li>
+        <li>Verify the topological edge mode forms as dimerization sweeps trivial → topological.</li>
+        <li>Defect-sweep test: kill one resonator, measure task-performance degradation, topological vs. trivial
+        coupling.</li>
+        <li>Add nonlinearity (damped/driven Duffing ODE) and noise; re-run the same tests.</li>
+        <li>Add a redundancy-based alternative architecture as a control comparison.</li>
+        <li>Pre-register the chiral-symmetry-specific firm-up test last, once the boundary was suspected — not
+        first.</li>
+      </ol>
+
+      <div class="typealong" id="ta-r9"></div>
+
+      <div class="connections">
+        <span class="tag">← Foundation 03</span><span class="tag">← quasicrystal-mems-reservoir</span>
+        <span class="tag">→ spikeling-os Milestone 4 (independent negative-result echo)</span>
+      </div>
+    </section>
+
+    <section class="chapter" id="r10">
+      <div class="chapter-head">
+        <div><div class="eyebrow">Repo · 2026-07-26 · Python</div><h2>pond-health</h2></div>
+        <div class="trit-toggle" data-id="r10"><button data-v="-1">−1</button><button data-v="0">0</button><button data-v="1">+1</button></div>
+      </div>
+      <div class="chapter-meta"><a href="https://github.com/tritsystem/pond-health" target="_blank" rel="noopener">github.com/tritsystem/pond-health</a></div>
+      <p class="snapshot">Predicts pond water-quality problems before they're visible — a forecast, not a snapshot.
+      Where the trend+spiking dual-detector pattern (Foundation 05) was born.</p>
+
+      <h3 class="sub">Understand</h3>
+      <details class="qa"><summary>Why deliberately not a black-box ML model, when the rest of the portfolio trains real models elsewhere?</summary>
+        <div class="a">No real historical pond data exists yet to train one honestly. Reasoning like an experienced
+        pond-keeper — trend + threshold — is the honest choice until real data justifies a trained model. The
+        <code>Prediction</code> shape is designed so a trained model can be swapped in later without touching the
+        diagnosis or alert layers.</div>
+      </details>
+
+      <h3 class="sub">Build it from scratch</h3>
+      <ol class="build">
+        <li>A simulated sensor stream (temp/pH/turbidity/DO/conductivity) behind a swappable interface, standing in
+        for real hardware.</li>
+        <li><code>TrendDetector</code>: linear fit, forward projection, threshold-crossing estimate.</li>
+        <li>Diagnosis layer: map trend + current values to a specific deficiency against real aquaculture
+        thresholds.</li>
+        <li>Recommendation layer: one concrete organic fix per diagnosis.</li>
+        <li>Add <code>SpikingDetector</code> alongside once the trend-only approach's blind spot became clear (no
+        protection against a sustained-but-non-trending problem) — Foundation 05.</li>
+      </ol>
+
+      <div class="typealong" id="ta-r10"></div>
+
+      <div class="connections">
+        <span class="tag">← Foundation 05</span><span class="tag">→ sensor-duo (extraction)</span>
+      </div>
+    </section>
+
+    <section class="chapter" id="r11">
+      <div class="chapter-head">
+        <div><div class="eyebrow">Repo · 2026-07-26 · Python</div><h2>doorcam</h2></div>
+        <div class="trit-toggle" data-id="r11"><button data-v="-1">−1</button><button data-v="0">0</button><button data-v="1">+1</button></div>
+      </div>
+      <div class="chapter-meta"><a href="https://github.com/tritsystem/doorcam" target="_blank" rel="noopener">github.com/tritsystem/doorcam</a></div>
+      <p class="snapshot">A USB webcam turned driveway monitor — YOLOv8n detection inside a hand-drawn boundary,
+      Discord alerts, and a real, ToS-safe live-video workaround.</p>
+
+      <h3 class="sub">Understand</h3>
+      <details class="qa"><summary>Discord's bot API can't push live video into a voice channel the way a human's screen-share does. What's the real workaround, and what does it deliberately refuse to do instead?</summary>
+        <div class="a">Serves the annotated feed as an MJPEG stream, points OBS's Browser Source at it, and uses
+        Discord's own native "Go Live" to share that OBS source. It deliberately refuses to build a self-bot
+        impersonating the user's own account — against Discord's ToS and a real ban risk, even though it would
+        "work."</div>
+      </details>
+      <details class="qa"><summary>Why a background thread specifically for webcam capture, instead of reading frames in the main loop?</summary>
+        <div class="a">The standard fix for "OpenCV webcam feels laggy": a thread continuously drains the camera and
+        keeps only the latest frame, so what's displayed is never a stale, queued frame.</div>
+      </details>
+
+      <h3 class="sub">Build it from scratch</h3>
+      <ol class="build">
+        <li>Background-threaded webcam capture (always keep only the latest frame).</li>
+        <li>YOLOv8n inference (pretrained, no training needed), filtered to COCO person/vehicle classes.</li>
+        <li>One-time polygon calibration tool defining "driveway," filtering out street/neighbor traffic.</li>
+        <li>Per-category rate-limited Discord webhook alerts — snapshot on first new detection, not spammed.</li>
+        <li>MJPEG live-stream endpoint for the OBS / Go-Live workaround.</li>
+        <li>Timestamped recordings log for every alert.</li>
+      </ol>
+
+      <div class="typealong" id="ta-r11"></div>
+
+      <div class="connections"><span class="tag">independent of the Spikeling/ternary substrate</span><span class="tag">pure applied CV</span></div>
+    </section>
+
+    <section class="chapter" id="r12">
+      <div class="chapter-head">
+        <div><div class="eyebrow">Repo · 2026-07-26 · Python</div><h2>sensor-duo</h2></div>
+        <div class="trit-toggle" data-id="r12"><button data-v="-1">−1</button><button data-v="0">0</button><button data-v="1">+1</button></div>
+      </div>
+      <div class="chapter-meta"><a href="https://github.com/tritsystem/sensor-duo" target="_blank" rel="noopener">github.com/tritsystem/sensor-duo</a></div>
+      <p class="snapshot">Built the same day as doorcam and pond-health — the trend+spiking pattern extracted from
+      <code>pond-health</code> into a reusable, channel-agnostic library.</p>
+
+      <h3 class="sub">Understand</h3>
+      <details class="qa"><summary>"Building it a second time made clear it should be a library." What's the actual signal that should trigger an extraction like this, in general?</summary>
+        <div class="a">Recognizing the <i>same pattern</i> being hand-copied into a second, genuinely unrelated domain
+        (pond chemistry → arbitrary sensor channels). The extraction happened once real second-use pressure existed —
+        not preemptively, before any second use was in sight.</div>
+      </details>
+
+      <h3 class="sub">Build it from scratch</h3>
+      <ol class="build">
+        <li>Generic <code>Reading</code> / <code>Range</code> / <code>DetectorStore</code> types parametrized over
+        arbitrary channel names.</li>
+        <li><code>TrendDetector</code> + <code>SpikingDetector</code> against that generic interface — the spiking
+        side optional-imports Spikeling as a sibling checkout and degrades gracefully if it's absent.</li>
+        <li>SQLite logging + a generated Grafana dashboard.</li>
+        <li>A real, runnable example <i>outside</i> the pond-specific origin context (CPU temperature + "person
+        lingering at the door").</li>
+      </ol>
+
+      <div class="typealong" id="ta-r12"></div>
+
+      <div class="connections">
+        <span class="tag">← Foundation 05</span><span class="tag">← pond-health</span>
+        <span class="tag">→ server-guard</span><span class="tag">→ home-hub</span>
+      </div>
+    </section>
+
+    <section class="chapter" id="r13">
+      <div class="chapter-head">
+        <div><div class="eyebrow">Repo · 2026-08-01 · Rust</div><h2>spikeling-os</h2></div>
+        <div class="trit-toggle" data-id="r13"><button data-v="-1">−1</button><button data-v="0">0</button><button data-v="1">+1</button></div>
+      </div>
+      <div class="chapter-meta"><a href="https://github.com/tritsystem/spikeling-os" target="_blank" rel="noopener">github.com/tritsystem/spikeling-os</a></div>
+      <p class="snapshot">A from-scratch x86_64 kernel where Spikeling's SNN runtime <i>is</i> the scheduler — not an
+      app running on a normal OS. Built milestone by milestone, verified in QEMU.</p>
+
+      <h3 class="sub">Understand</h3>
+      <details class="qa"><summary>Milestone 4 tested SSH-topological scheduling and got a negative result (trivial 0.860 beat topological 0.790). Give the two real, distinct honest explanations offered — not the flattering one.</summary>
+        <div class="a">(1) the coupling term was deliberately kept small relative to each slot's own bias specifically
+        to avoid instability, and was likely too weak at this scale to show any effect; (2) a genuinely open question
+        of whether a discrete winner-take-all accumulator is even the right dynamical regime for topological
+        protection to appear in at all — unlike continuous oscillators, where it's an established physical
+        phenomenon.</div>
+      </details>
+      <details class="qa"><summary>Why a dedicated IST stack specifically for the double-fault handler, rather than handling it on the current stack?</summary>
+        <div class="a">A double fault often happens <i>because</i> the current stack is already corrupted — handling
+        it on that same stack would just triple-fault instead of producing a readable panic. A known-good separate
+        stack is what makes double faults debuggable at all.</div>
+      </details>
+
+      <h3 class="sub">Build it from scratch</h3>
+      <ol class="build">
+        <li>Boot via the <code>rust-osdev/bootloader</code> crate (BIOS + UEFI), serial output, a clean halt.</li>
+        <li>Framebuffer output — get <code>stride</code> vs. <code>width</code> and the reported
+        <code>PixelFormat</code> (BGR here) right; verify with a real QEMU <code>screendump</code>, not just a serial
+        print.</li>
+        <li>Memory management — <code>OffsetPageTable</code> + <code>BootInfoFrameAllocator</code> + heap +
+        <code>linked_list_allocator</code>; verify with a real growing/reallocating <code>Vec</code>, not just "it
+        compiled."</li>
+        <li>Task-selection policy driven by an SNN with SSH-topological coupling between task slots. Test
+        defect-tolerance honestly — kill one slot, report whatever the number actually says.</li>
+        <li>Real preemptive multitasking: GDT/TSS/IDT with a dedicated IST stack for the double fault, verified with
+        a real <code>int3</code> breakpoint round-trip.</li>
+      </ol>
+
+      <div class="typealong" id="ta-r13"></div>
+
+      <div class="connections">
+        <span class="tag">← Spikeling</span><span class="tag">← Foundation 01</span><span class="tag">← Foundation 03</span>
+        <span class="tag">independent echo of topological-phononics' own boundary finding</span>
+      </div>
+    </section>
+
+    <section class="chapter" id="r14">
+      <div class="chapter-head">
+        <div><div class="eyebrow">Repo · 2026-08-01 · Python · live in production</div><h2>observe-api</h2></div>
+        <div class="trit-toggle" data-id="r14"><button data-v="-1">−1</button><button data-v="0">0</button><button data-v="1">+1</button></div>
+      </div>
+      <div class="chapter-meta"><a href="https://github.com/tritsystem/observe-api" target="_blank" rel="noopener">github.com/tritsystem/observe-api</a> · api.observe-search.online</div>
+      <p class="snapshot">OBSERVE's <code>SearchEngine</code> extracted into a headless, pay-per-query FastAPI service.
+      Stripe-billed credits. Float32 embeddings in production — the disclosed ternary tradeoff from Foundation 02,
+      applied for real.</p>
+
+      <h3 class="sub">Understand</h3>
+      <details class="qa"><summary>What's the real production incident this service hit, and what was the real fix — not the guessed one?</summary>
+        <div class="a">p50 search latency measured at <b>17.65s</b> under real load. Root cause: <code>BM25Okapi
+        .get_scores()</code> scored the <i>entire</i> 759k-doc corpus every query, then discarded all but the top 30
+        results. Switched to <code>get_batch_scores()</code>, which only scores the needed 30. Re-measured:
+        <b>1.66s</b>.</div>
+      </details>
+      <details class="qa"><summary>You personally restarted this service's live tunnel this session. In your own words, what was actually broken?</summary>
+        <div class="a">Not the backend — a <b>stale, zombie SSH reverse-tunnel listener</b> on the droplet from a
+        much older session that never cleanly closed. It sat bound to <code>0.0.0.0:8000</code>, accepting real
+        TCP/TLS connections, but had nothing live on the other end — so every request hung until timeout instead of
+        failing cleanly, which is exactly why it looked like "the API is down" rather than throwing an obvious
+        error.</div>
+      </details>
+
+      <h3 class="sub">Build it from scratch</h3>
+      <ol class="build">
+        <li>Extract <code>SearchEngine</code> from the GUI app into a standalone, importable module with no
+        GUI-thread assumptions.</li>
+        <li>SQLite-backed API keys + credit balances, with <i>atomic</i> deduct-on-search (no race-condition
+        double-spend).</li>
+        <li>Stripe Checkout session creation + webhook handling — credits attributed per API key, not email (avoids
+        email-collision billing bugs).</li>
+        <li>FastAPI endpoints: <code>/v1/signup</code>, <code>/v1/search</code>, <code>/v1/balance</code>,
+        <code>/v1/repos</code>, <code>/v1/webhook/stripe</code>.</li>
+        <li>One-time index build over a curated repo corpus.</li>
+        <li>Deploy behind a droplet + Caddy (reverse proxy, automatic TLS) — but host the actual model/index wherever
+        has enough RAM (this project needed WSL2, not the small droplet, after two real OOM kills).</li>
+        <li><b>Load-test before calling it launched</b> — this is literally how the BM25 latency bug got caught
+        before the public Show HN post went out.</li>
+      </ol>
+
+      <div class="typealong" id="ta-r14"></div>
+
+      <div class="connections">
+        <span class="tag">← 012-trit-search</span><span class="tag">← Foundation 02 (declined ternary)</span>
+        <span class="tag">real paying-customer stakes</span>
+      </div>
+    </section>
+
+    <section class="chapter" id="r15">
+      <div class="chapter-head">
+        <div><div class="eyebrow">Repo · 2026-08-03 · Python</div><h2>llama-demo</h2></div>
+        <div class="trit-toggle" data-id="r15"><button data-v="-1">−1</button><button data-v="0">0</button><button data-v="1">+1</button></div>
+      </div>
+      <div class="chapter-meta"><a href="https://github.com/tritsystem/llama-demo" target="_blank" rel="noopener">github.com/tritsystem/llama-demo</a> · no top-level README — verified from real source files</div>
+      <p class="snapshot">Not a standalone product. <b>Root Cause Copilot</b> (methodlm's harness pointed at OBSERVE's
+      search) plus a real benchmark: does baking the method into a small model's weights beat just prompting it?</p>
+
+      <h3 class="sub">Understand</h3>
+      <details class="qa"><summary>State the real three-way comparison run on the sklearn diabetes dataset, checked against genuine external ground truth.</summary>
+        <div class="a">Raw correlation, Random Forest importance (500 trees), and MethodLM's ADJUST+RV — checked
+        against Efron et al.'s established top drivers (bmi, bp, ltg). All three <i>agree</i> on those three, which
+        is itself evidence the method isn't inventing disagreement where none exists. They diverge specifically on
+        tch/hdl/glu (look important to the naive tools, collapse under adjustment) and <code>sex</code> (looks
+        irrelevant to both naive tools, survives adjustment with a sign-flipped, order-of-magnitude-larger real
+        effect).</div>
+      </details>
+      <details class="qa"><summary>What's the one thing this repo's own honest-scope note says is still unverified end-to-end?</summary>
+        <div class="a">The OBSERVE code-search half of the Root Cause Copilot pipeline — at the time, blocked on a
+        real API key. So the finding validates the causal-diagnosis half specifically, not the whole combined
+        copilot experience. Don't overclaim the full pipeline from validating half of it.</div>
+      </details>
+
+      <h3 class="sub">Build it from scratch</h3>
+      <ol class="build">
+        <li>Corpus/prompt generation for training a "baked" model variant.</li>
+        <li>Fine-tune a small local model (Qwen 0.5B) so the method's discipline is baked directly into its weights,
+        not just prompted.</li>
+        <li>Benchmark harness comparing baked vs. prompted vs. frontier models, each run across multiple seeds, every
+        run ledger-logged individually and traceably (not just a summary number).</li>
+        <li><code>root_cause_copilot.py</code>: wire methodlm's <code>ADJUST</code> output as the driver-selection
+        step feeding an OBSERVE search.</li>
+        <li>Spiking-network integrations for causal-order and fusion-verdict checking — Spikeling used here as a
+        genuine reasoning component, not a game-AI brain.</li>
+      </ol>
+
+      <div class="typealong" id="ta-r15"></div>
+
+      <div class="connections">
+        <span class="tag">← methodlm</span><span class="tag">← Foundation 04</span><span class="tag">← Spikeling</span>
+        <span class="tag">← observe-api</span>
+        <span class="tag">clearest place all three threads actually meet</span>
+      </div>
+    </section>
+
+    <section class="chapter" id="r16">
+      <div class="chapter-head">
+        <div><div class="eyebrow">Repo · 2026-08-05 · Python · live, offline-by-design</div><h2>server-guard</h2></div>
+        <div class="trit-toggle" data-id="r16"><button data-v="-1">−1</button><button data-v="0">0</button><button data-v="1">+1</button></div>
+      </div>
+      <div class="chapter-meta"><a href="https://github.com/tritsystem/server-guard" target="_blank" rel="noopener">github.com/tritsystem/server-guard</a></div>
+      <p class="snapshot">Fully offline server-health + intrusion-signal monitor, built directly on
+      <code>sensor-duo</code>'s dual-detector pattern, generalized over pluggable collectors.</p>
+
+      <div class="callout"><b>You debugged this one today, for real.</b> <code>guard.py --interval 5</code> was left
+      running its disk-reliability collector every 5 seconds — a fresh PowerShell subprocess per tick. It wasn't a
+      code bug: the collector is correct in isolation. It was an <b>operational</b> defect — a testing-appropriate
+      interval left running as if it were the steady-state production setting, with nothing re-checking whether that
+      cadence still made sense once "testing" quietly became "always on."</div>
+
+      <h3 class="sub">Understand</h3>
+      <details class="qa"><summary>"Adding a new data source should never require touching existing code." What architectural choice makes that literally true here?</summary>
+        <div class="a"><code>CollectorRegistry</code> runs every collector each tick through one uniform
+        <code>collect() -&gt; {name: value}</code> interface, and isolates failures per-collector so a flaky collector
+        can't kill the tick. A new collector is a new file implementing that one method — nothing else in the
+        codebase changes.</div>
+      </details>
+      <details class="qa"><summary>In your own words: why did today's incident show up as "the terminal keeps interrupting me" instead of a clean error message?</summary>
+        <div class="a">Because nothing was actually broken in the failure-mode sense — the collector ran exactly as
+        designed, on schedule, successfully, every single time. The defect was invisible to any error-detection logic
+        because there was no error: just a correct mechanism running at an interval nobody re-evaluated once the
+        context around it changed.</div>
+      </details>
+
+      <h3 class="sub">Build it from scratch</h3>
+      <ol class="build">
+        <li><code>CollectorRegistry</code>: uniform <code>collect()</code> interface, per-collector failure
+        isolation, config-driven thresholds.</li>
+        <li>Measured-baseline mode: replace guessed thresholds with real mean+std once enough real data has
+        accumulated.</li>
+        <li>Real alerting (webhook/email) with transition-based dedup — and remember the two real bugs this exact
+        feature hit: a cooldown that swallowed recovery notifications, and a failing webhook whose exception message
+        leaked a bearer-token-shaped URL into plaintext logs.</li>
+        <li><code>supervisor.py</code>: crash recovery with backoff + crash-loop protection, <i>plus</i> a
+        hang-detection watchdog — crash recovery alone misses a stuck-but-alive tick loop.</li>
+        <li>Add collectors incrementally as real needs appear: disk, network, TLS cert expiry, physical-disk
+        reliability (hit a real Access-Denied wall unelevated on Windows — worked around via
+        <code>Get-PhysicalDisk</code>'s health rollup instead of raw SMART counters), Windows Event Log.</li>
+        <li>Outbound C2 beacon detection: a coefficient-of-variation heuristic on inter-connection timing — the same
+        technique tools like RITA/Zeek use.</li>
+      </ol>
+
+      <div class="typealong" id="ta-r16"></div>
+
+      <div class="connections">
+        <span class="tag">← sensor-duo</span><span class="tag">← Foundation 05</span>
+        <span class="tag">today's live case study in operational vs. code defects</span>
+      </div>
+    </section>
+
+    <!-- ============ SYNTHESIS ============ -->
+
+    <section class="chapter" id="synthesis">
+      <div class="chapter-head">
+        <div><div class="eyebrow">Closing</div><h2>What actually unified, and what didn't</h2></div>
+        <div class="trit-toggle" data-id="synthesis"><button data-v="-1">−1</button><button data-v="0">0</button><button data-v="1">+1</button></div>
+      </div>
+      <p class="snapshot">At one point, an explicit attempt was made to unify the phononic, ternary, and acoustic
+      results under one "symmetry-conditional protection" rule. It <b>lost</b> — measured against each substrate's
+      real code, not against the tidy story.</p>
+
+      <h3 class="sub">Understand</h3>
+      <details class="qa"><summary>What actually survived the attempt to unify everything, and what didn't?</summary>
+        <div class="a">No single law survived. What survived is narrow and real: a <b>phononic ≈ ternary
+        winding-invariant rhyme</b> — in both, an invariant is protected, but computation doesn't automatically
+        follow from that protection. The <b>acoustic</b> result turned out to be a genuinely separate
+        nonlinearity-selection mechanism that didn't even reproduce in the resonator bank when actually tested — not
+        a variant of the same law, a different phenomenon entirely.</div>
+      </details>
+      <details class="qa"><summary>Why does a portfolio that explicitly tried and failed to find a grand unifying theory make every individual repo's claims more trustworthy, not less?</summary>
+        <div class="a">Because the alternative — quietly not mentioning the failed unification and only presenting
+        the individual results — would hide exactly the kind of overreach this whole discipline (Foundation 06)
+        exists to prevent. Reporting "we tried to unify these and it didn't work" is the same honesty that produced
+        the sex/diabetes finding, the spikeling-os Milestone 4 result, and the observe-api float32 decision. It's one
+        discipline, applied consistently, not a special exception for the big theory.</div>
+      </details>
+    </section>
+
+    <section class="chapter" id="defense">
+      <div class="chapter-head"><div><div class="eyebrow">Final defense</div><h2>Integrative questions — no notes</h2></div></div>
+      <p class="snapshot">These require pulling from more than one chapter. If you can answer these cold, you can
+      defend the portfolio as a whole, not just its parts.</p>
+      <div class="final-defense">
+        <ol>
+          <li><b>Why does observe-api ship float32, not ternary, embeddings</b> — given the entire ternary research
+          thread it's built on top of? Name the exact measured numbers that made that call.</li>
+          <li><b>Name two independent replications</b> of "topological protection doesn't automatically transfer to
+          a real system," on two completely different substrates, from two different repos.</li>
+          <li><b>Trace the consensus / weighted-vote scoping rule</b> from its origin concept (012-trit-search's RTL
+          consensus gate) through to where it was tested live on tribe's fight-or-flee NPC logic — and where it lost
+          decisively on a <i>different</i> decision shape in the same game. What does the gap between those two
+          outcomes tell you about how narrowly to trust a "confirmed" result?</li>
+          <li><b>Name the one deployed system in this whole portfolio with real paying-customer stakes</b>, and the
+          one real, disclosed security mistake about it that — as of today — still hasn't been fixed.</li>
+        </ol>
+      </div>
+      <footer class="end">Built from live data pulled from github.com/tritsystem on 2026-08-07 — repo descriptions,
+      READMEs, and measured numbers fetched directly, not recalled from memory. Progress chips save locally to this
+      browser only.</footer>
+    </section>
+
+  </main>
+</div>
+
+<script>
+(function() {
+  var TRIT_IDS = ['f1','f2','f3','f4','f5','f6','r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','r11','r12','r13','r14','r15','r16','synthesis'];
+  var STORE_KEY = 'playbook-trits-v1';
+
+  function loadState() {
+    try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch (e) { return {}; }
+  }
+  function saveState(state) {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {}
+  }
+  var state = loadState();
+
+  function applyChip(toggle, val) {
+    var buttons = toggle.querySelectorAll('button');
+    buttons.forEach(function(b) {
+      b.classList.toggle('on', String(val) === b.getAttribute('data-v'));
+    });
+  }
+  function applyNavDot(id, val) {
+    var link = document.querySelector('.navlink[data-id="' + id + '"]');
+    if (!link) return;
+    var dot = link.querySelector('.navchip');
+    if (!dot) {
+      dot = document.createElement('span');
+      dot.className = 'navchip';
+      link.appendChild(dot);
+    }
+    var color = val === '-1' ? 'var(--trit-neg)' : val === '0' ? 'var(--trit-zero)' : val === '1' ? 'var(--trit-pos)' : 'var(--rule)';
+    dot.style.background = color;
+  }
+
+  function renderProgress() {
+    var counts = { '-1': 0, '0': 0, '1': 0, 'unset': 0 };
+    TRIT_IDS.forEach(function(id) {
+      var v = state[id];
+      if (v === '-1' || v === '0' || v === '1') counts[v]++;
+      else counts.unset++;
+    });
+    var bar = document.getElementById('progress');
+    bar.innerHTML = '';
+    var segs = [
+      { key: '1', color: 'var(--trit-pos)' },
+      { key: '0', color: 'var(--trit-zero)' },
+      { key: '-1', color: 'var(--trit-neg)' },
+      { key: 'unset', color: 'var(--rule)' }
+    ];
+    segs.forEach(function(s) {
+      if (counts[s.key] === 0) return;
+      var seg = document.createElement('div');
+      seg.className = 'progress-seg';
+      seg.style.flexGrow = counts[s.key];
+      var fill = document.createElement('div');
+      fill.className = 'progress-fill';
+      fill.style.background = s.color;
+      fill.style.width = '100%';
+      seg.appendChild(fill);
+      bar.appendChild(seg);
+    });
+    var tracked = counts['-1'] + counts['0'] + counts['1'];
+    document.getElementById('progress-count').textContent = counts['1'] + ' defensible / ' + TRIT_IDS.length + ' total';
+  }
+
+  document.querySelectorAll('.trit-toggle').forEach(function(toggle) {
+    var id = toggle.getAttribute('data-id');
+    var current = state[id];
+    if (current !== undefined) applyChip(toggle, current);
+    applyNavDot(id, current);
+
+    toggle.querySelectorAll('button').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var v = btn.getAttribute('data-v');
+        if (state[id] === v) { delete state[id]; v = undefined; }
+        else { state[id] = v; }
+        applyChip(toggle, v);
+        applyNavDot(id, v);
+        saveState(state);
+        renderProgress();
+      });
+    });
+  });
+  renderProgress();
+
+  // Scroll-spy for sidebar active link
+  var sections = Array.prototype.slice.call(document.querySelectorAll('section.chapter, .hero'));
+  var navlinks = document.querySelectorAll('.navlink');
+  if ('IntersectionObserver' in window) {
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          var id = entry.target.id;
+          navlinks.forEach(function(l) {
+            l.classList.toggle('active', l.getAttribute('href') === '#' + id);
+          });
+        }
+      });
+    }, { rootMargin: '-10% 0px -70% 0px', threshold: 0 });
+    sections.forEach(function(s) { if (s.id) observer.observe(s); });
+  }
+
+  // ---- Interactive code playgrounds ----
+  function compileFn(code, name) {
+    var fn = new Function(code + '\nreturn ' + name + ';')();
+    if (typeof fn !== 'function') throw new Error(name + ' is not defined as a function.');
+    return fn;
+  }
+  function cssVar(name, fallback) {
+    var v = getComputedStyle(document.documentElement).getPropertyValue(name);
+    return v ? v.trim() : fallback;
+  }
+
+  function generateLIFInput() {
+    var pulses = {20:1,21:1,22:1, 55:1,56:1,57:1, 90:1,91:1,92:1};
+    var current = [];
+    for (var t = 0; t < 120; t++) {
+      current.push(pulses[t] ? 60 : (8 + (Math.random() * 8 - 4)));
+    }
+    return current;
+  }
+
+  function drawLIFPlot(trace, fired, threshold) {
+    var canvas = document.getElementById('lif-plot');
+    var dpr = window.devicePixelRatio || 1;
+    var w = canvas.clientWidth || 600, h = canvas.clientHeight || 160;
+    canvas.width = w * dpr; canvas.height = h * dpr;
+    var ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    var maxTrace = trace.length ? Math.max.apply(null, trace) : 0;
+    var maxV = Math.max(threshold * 1.15, maxTrace * 1.1, 10);
+    var padL = 4, padR = 4, padT = 10, padB = 6;
+    var plotW = w - padL - padR, plotH = h - padT - padB;
+    function xAt(i) { return padL + (i / Math.max(1, trace.length - 1)) * plotW; }
+    function yAt(v) { return padT + plotH - (v / maxV) * plotH; }
+
+    ctx.strokeStyle = cssVar('--trit-neg', '#a8433a');
+    ctx.setLineDash([4, 3]);
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(padL, yAt(threshold)); ctx.lineTo(w - padR, yAt(threshold)); ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.strokeStyle = cssVar('--accent', '#e3a159');
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    trace.forEach(function(v, i) {
+      var x = xAt(i), y = yAt(v);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    ctx.fillStyle = cssVar('--trit-pos', '#3f7a4a');
+    fired.forEach(function(f, i) {
+      if (f) { ctx.beginPath(); ctx.arc(xAt(i), padT, 3, 0, Math.PI * 2); ctx.fill(); }
+    });
+  }
+
+  function runLIF() {
+    var code = document.getElementById('lif-code').value;
+    var logEl = document.getElementById('lif-log');
+    var threshold = parseFloat(document.getElementById('lif-threshold').value) || 100;
+    var leak = parseFloat(document.getElementById('lif-leak').value) || 8;
+    var refractoryPeriod = parseFloat(document.getElementById('lif-refractory').value) || 5;
+
+    var fn;
+    try {
+      fn = compileFn(code, 'stepNeuron');
+    } catch (e) {
+      logEl.textContent = 'Compile error: ' + e.message;
+      logEl.className = 'playground-log err';
+      return;
+    }
+
+    var input = generateLIFInput();
+    var potential = 0, refractoryRemaining = 0;
+    var trace = [], fired = [];
+    try {
+      for (var t = 0; t < input.length; t++) {
+        var result = fn(potential, refractoryRemaining, input[t], threshold, leak, refractoryPeriod);
+        if (!Array.isArray(result) || result.length < 3) {
+          throw new Error('stepNeuron must return [potential, refractoryRemaining, fired].');
+        }
+        potential = result[0]; refractoryRemaining = result[1];
+        trace.push(potential);
+        fired.push(!!result[2]);
+      }
+    } catch (e2) {
+      logEl.textContent = 'Runtime error at tick ' + t + ': ' + e2.message;
+      logEl.className = 'playground-log err';
+      return;
+    }
+
+    drawLIFPlot(trace, fired, threshold);
+    var fireTicks = [];
+    fired.forEach(function(f, i) { if (f) fireTicks.push(i); });
+    var fireCount = fireTicks.length;
+    var ok = fireCount >= 2 && fireCount <= 5;
+    var verdict = ok
+      ? 'Looks right — silent on noise, fires near the three pulses.'
+      : (fireCount === 0
+          ? 'No spikes at all — check the threshold-crossing condition.'
+          : 'Fired ' + fireCount + ' times. If that is far more than 3, check whether leak is really applied every tick, including ticks with no input.');
+    logEl.textContent = fireCount + ' spike(s) at tick(s) [' + fireTicks.join(', ') + ']. ' + verdict;
+    logEl.className = 'playground-log ' + (ok ? 'ok' : 'err');
+  }
+
+  function runConsensusTests() {
+    var code = document.getElementById('trit-code').value;
+    var logEl = document.getElementById('trit-log');
+    var tableEl = document.getElementById('trit-table');
+    var fn;
+    try {
+      fn = compileFn(code, 'consensus');
+    } catch (e) {
+      logEl.textContent = 'Compile error: ' + e.message;
+      logEl.className = 'playground-log err';
+      tableEl.innerHTML = '';
+      return;
+    }
+    var cases = [
+      { input: [1, 1, 1], expect: 1 },
+      { input: [-1, -1, -1], expect: -1 },
+      { input: [1, -1, 1], expect: 0 },
+      { input: [1, 1, 0], expect: 0 },
+      { input: [-1, -1, 0], expect: 0 },
+      { input: [0, 0, 0], expect: 0 },
+      { input: [1, 1, 1, 1], expect: 1 },
+      { input: [-1, -1, -1, -1], expect: -1 }
+    ];
+    var rows = '<tr><th>Input</th><th>Expected</th><th>Got</th><th>Result</th></tr>';
+    var passCount = 0;
+    cases.forEach(function(c) {
+      var got, ok;
+      try {
+        got = fn(c.input.slice());
+        ok = got === c.expect;
+      } catch (e3) {
+        got = 'error: ' + e3.message;
+        ok = false;
+      }
+      if (ok) passCount++;
+      rows += '<tr><td>[' + c.input.join(', ') + ']</td><td class="num">' + c.expect + '</td><td class="num">' +
+        got + '</td><td class="' + (ok ? 'pass' : 'fail') + '">' + (ok ? 'PASS' : 'FAIL') + '</td></tr>';
+    });
+    tableEl.innerHTML = rows;
+    var allPass = passCount === cases.length;
+    logEl.textContent = passCount + ' / ' + cases.length + ' passing.' + (allPass ? ' Your consensus gate is correct.' : '');
+    logEl.className = 'playground-log ' + (allPass ? 'ok' : 'err');
+  }
+
+  var lifRunBtn = document.getElementById('lif-run');
+  if (lifRunBtn) lifRunBtn.addEventListener('click', runLIF);
+  var tritRunBtn = document.getElementById('trit-run');
+  if (tritRunBtn) tritRunBtn.addEventListener('click', runConsensusTests);
+
+  // ---- Type-along: real source, typed in line by line ----
+  var L = function(code, explain) { return { code: code, explain: explain }; };
+
+  var TA_DATA = {
+    r1: { file: 'HealthComponent.gd — take_damage()', lang: 'GDScript', lines: [
+      L('func take_damage(amount: float) -> void:', 'Defines a function named <code>take_damage</code> that takes one parameter, <code>amount</code> (a decimal number), and returns nothing (<code>void</code>). Every gun and projectile in the game calls this when something gets hit.'),
+      L('if amount <= 0:', 'A guard clause: checks whether the incoming "damage" is zero or negative.'),
+      L('return', 'If so, exit the function immediately — there is nothing to do.'),
+      L('# 🔥 Allow damage even if flagged dead but health > 0 (safety)', 'A comment (the game ignores this line entirely) explaining the real reasoning behind the next two lines, left for a future reader.'),
+      L('if is_dead and health > 0:', 'Handles a specific data-consistency edge case: this object was already marked dead, but somehow still shows positive health.'),
+      L('is_dead = false', 'Un-flags the dead state for that edge case, so damage can be applied normally below.'),
+      L('health -= amount', 'The actual damage: subtract the incoming amount from current health.'),
+      L('health = clamp(health, 0.0, max_health)', '<code>clamp(value, min, max)</code> forces health to stay between 0 and <code>max_health</code> — stops it going negative, or (if this were accidentally called with a heal) exceeding its cap.'),
+      L('_emit_health()', 'Calls another function, defined elsewhere, that broadcasts the new health value — e.g. to update a health bar.'),
+      L('if health <= 0.0:', 'Checks whether this reduction just brought health to zero or below.'),
+      L('_die()', 'If so, calls the function that actually handles death — animations, loot, removal from the scene.')
+    ]},
+    r2: { file: 'core/runtime/runtime.py — inside SpikelingRuntime._fire()', lang: 'Python', lines: [
+      L('command = self.actions.get(n.name)', 'Looks up whether this neuron has a named action wired to it (from the <code>action</code> directive in the <code>.spk</code> file) — <code>.get()</code> returns <code>None</code> instead of crashing if there isn\'t one.'),
+      L('if command and command in self.handlers:', 'Checks both that an action name exists AND that some Python function was actually registered to handle it.'),
+      L('self.handlers[command]()', 'Calls that registered function — this is the actual moment a spike becomes a real side effect (e.g. firing a motor command).'),
+      L('if _depth < 32:', 'A safety cap on recursion: a spike can trigger downstream spikes, which can trigger more — this stops a cyclic network from cascading forever.'),
+      L('for syn in self.synapses:', 'Loops over every synapse in the whole network to find the ones leaving this neuron.'),
+      L('if syn.src == n.name:', 'Only cares about synapses whose source is the neuron that just fired.'),
+      L('downstream = self.neurons[syn.dst]', 'Looks up the actual neuron object this synapse targets.'),
+      L('elapsed    = t - downstream.last_spike_time', 'How much simulated time has passed since the downstream neuron last fired (the extra spaces are just this file\'s own alignment style — whitespace amount doesn\'t change what the code does).'),
+      L('if elapsed < self.refractory_ms:', 'Checks whether the downstream neuron is still inside its own refractory window.'),
+      L('continue', 'If it is, skip delivering this stimulus to it entirely and move to the next synapse.'),
+      L('downstream.membrane_potential = max(', 'Begins updating the downstream neuron\'s potential — <code>max(...)</code> spans onto the next line, clamping the result to a floor.'),
+      L('-downstream.threshold,', 'The floor: potential is never allowed to drop below the negative of this neuron\'s own threshold.'),
+      L('downstream.membrane_potential + syn.weight * 50.0)', 'The actual update: add this synapse\'s weight (scaled) to the downstream neuron\'s current potential. A <b>negative</b> weight here subtracts — that\'s inhibition, real veto power the downstream neuron has to climb back out of before it can fire, not just cancelling charge already there.')
+    ]},
+    r3: { file: 'reservoir_computing/verify_selection_rule.py — cube_integral()', lang: 'Python', lines: [
+      L('def cube_integral(w):', 'Defines the function that computes the exact quantity Foundation 03 is built around: ∫φ³, the cubic mode overlap.'),
+      L('"""integral(phi^3 dA) on the unit-RMS-normalized grid (area weight is a', 'A docstring — a comment placed right after the function signature documenting what it does. Still ignored when the code runs.'),
+      L('constant on the structured mesh, so the mean is proportional to it)."""', 'The docstring continues onto this line before its closing <code>"""</code>.'),
+      L('return float(np.mean(w**3))', 'The entire calculation, in one line: cube every value in the mode-shape grid <code>w</code> element-by-element (<code>w**3</code>), then average all of those cubed values. That single number is what vanishes to 1 part in 10⁹ for 7 of 8 D4-symmetric modes.')
+    ]},
+    r4: { file: 'hardware/consensus_gate.sv', lang: 'SystemVerilog', lines: [
+      L('import trit_pkg::*;', 'Brings in the <code>trit_t</code> type and the <code>TRIT_NEG</code>/<code>TRIT_ZERO</code>/<code>TRIT_POS</code> constants defined in another file, so this file can use them.'),
+      L('module consensus_gate (', 'Begins defining a hardware "module" — SystemVerilog\'s version of describing an actual circuit, not software steps — named <code>consensus_gate</code>. Its interface is listed in the parentheses that follow.'),
+      L('input  trit_t a,    // Observer  (stream_0)', 'Declares an input wire named <code>a</code>, of the custom ternary type <code>trit_t</code>; the trailing comment names it "Observer" per this project\'s own convention.'),
+      L('input  trit_t b,    // Shadow    (stream_1)', 'A second input wire.'),
+      L('input  trit_t c,    // Light     (stream_2)', 'A third input wire.'),
+      L('output trit_t out', 'The one output wire this module produces.'),
+      L(');', 'Closes the port list.'),
+      L('logic signed [2:0] sum;', 'Declares a 3-bit signed register named <code>sum</code>, wide enough to hold anything from −3 to +3 — the full possible range of adding three trits.'),
+      L('logic signed [1:0] sa, sb, sc;', 'Three small 2-bit signed registers to hold each input trit converted into a plain −1/0/+1 number.'),
+      L('always_comb begin', 'Starts a block that re-runs instantly, continuously, any time a signal it reads changes — <code>comb</code> means "combinational logic": no clock, no memory, just direct wiring.'),
+      L('sa  = (a == TRIT_NEG) ? -1 : (a == TRIT_POS) ? 1 : 0;', 'A ternary <code>?:</code> expression chained twice: "if <code>a</code> equals <code>TRIT_NEG</code>, <code>sa</code> is −1; else if it equals <code>TRIT_POS</code>, <code>sa</code> is 1; else 0." Converts the custom type into a plain number.'),
+      L('sb  = (b == TRIT_NEG) ? -1 : (b == TRIT_POS) ? 1 : 0;', 'The same conversion for input <code>b</code>.'),
+      L('sc  = (c == TRIT_NEG) ? -1 : (c == TRIT_POS) ? 1 : 0;', 'The same conversion for input <code>c</code>.'),
+      L('sum = sa + sb + sc;', 'Adds the three converted trits — this single sum is literally all the information needed to decide the consensus.'),
+      L('if      (sum > 0) out = TRIT_POS;', 'If the sum is positive (+1 votes outweighed −1 votes), output +1.'),
+      L('else if (sum < 0) out = TRIT_NEG;', 'If negative, output −1.'),
+      L('else              out = TRIT_ZERO;', 'Otherwise the votes cancelled out (or everyone voted 0) — output 0: no consensus.'),
+      L('end', 'Closes the <code>always_comb</code> block.'),
+      L('endmodule', 'Closes the module definition.')
+    ]},
+    r5: { file: 'spikeling.gd — step()', lang: 'GDScript', lines: [
+      L('func step() -> Array:', 'Defines the function that advances the whole brain by exactly one tick; returns a list of the names of every neuron that fired this tick.'),
+      L('step_count += 1', 'Increments a running counter of ticks, for logging/debugging.'),
+      L('var fired_now: Array = []', 'Creates a new, empty list to collect this tick\'s firing neuron names.'),
+      L('var next_pending: Dictionary = {}', 'Creates an empty lookup table to accumulate stimulus that firing neurons send to their targets, delivered on the NEXT tick — a one-tick delay.'),
+      L('for i in range(neurons.size()):', 'Loops once per neuron in the brain, using <code>i</code> as its index.'),
+      L('var n: Neuron = neurons[i]', 'Grabs the actual neuron object into a local variable <code>n</code>, so the rest of the loop can say <code>n</code> instead of <code>neurons[i]</code> repeatedly.'),
+      L('n.fired = false', 'Resets this neuron\'s "did I fire THIS tick" flag at the start of processing it.'),
+      L('if n.refr_left > 0:', 'Checks whether this neuron is still in its refractory period.'),
+      L('n.refr_left -= 1', 'If so, counts the refractory timer down by one tick.'),
+      L('continue', 'And skips the rest of this loop for this neuron entirely — no leak, no stimulus, no fire check while refractory.'),
+      L('n.p -= n.leak', '(Only reached if not refractory.) Subtracts the leak amount from potential — Foundation 01\'s leak step.'),
+      L('if n.p < 0.0:', 'Checks whether that leak pushed potential below zero.'),
+      L('n.p = 0.0', 'If so, clamps it back to exactly zero.'),
+      L('n.p += _pending.get(i, 0.0)', 'Adds in any stimulus scheduled for this neuron from a previous tick — <code>.get(i, 0.0)</code> means "look up index i, or use 0.0 if nothing\'s pending."'),
+      L('if n.p >= n.threshold:', 'The fire check: has potential crossed this neuron\'s threshold?'),
+      L('n.p = 0.0', 'If yes, resets potential to zero — the neuron just spent its charge.'),
+      L('n.refr_left = refractory_ticks', 'And enters the refractory period for a fixed number of ticks.'),
+      L('n.fired = true', 'Marks this neuron as having fired this tick.'),
+      L('n.fire_count += 1', 'Increments its lifetime fire counter, useful for STDP/statistics.'),
+      L('fired_now.append(n.name)', 'Adds this neuron\'s name to the list this function will return.'),
+      L('for s in synapses:', 'Loops over every synapse in the whole brain to find the ones leaving this neuron.'),
+      L('if s.src == i:', 'Only cares about synapses whose source is the neuron that just fired.'),
+      L('next_pending[s.dst] = next_pending.get(s.dst, 0.0) + s.weight', 'Adds this synapse\'s weight to whatever\'s already queued for its destination, to be delivered next tick — Foundation 01\'s "propagate to targets."'),
+      L('_pending = next_pending', 'After the loop over every neuron finishes, replaces the brain\'s real pending-stimulus table with everything just queued.'),
+      L('return fired_now', 'Hands back every neuron that fired this tick, so calling code (e.g. "did Motor fire?") can react.')
+    ]},
+    r8: { file: 'methodlm.py — inside adjust()', lang: 'Python', lines: [
+      L('def zsc(a):', 'A small helper function named <code>zsc</code> ("z-score"), taking one input <code>a</code>.'),
+      L('a = np.asarray(a, float); return (a - a.mean()) / (a.std() + 1e-9)', 'Two statements on one real line, separated by <code>;</code>: convert <code>a</code> to a numpy array of decimals, then return it "standardized" — every value has the column\'s average subtracted, divided by its spread. Makes every variable comparable regardless of original units. The tiny <code>+ 1e-9</code> avoids a divide-by-zero crash on a column that never varies.'),
+      L('y = zsc(data[target])', 'Standardizes the actual outcome column once, up front.'),
+      L('def fit(cond):', 'Defines the function that does the real backdoor-adjustment regression, given <code>cond</code> — the list of confounders to control for.'),
+      L('X = np.column_stack([zsc(data[c]) for c in [x] + cond] + [np.ones(n)])', 'Builds one table <code>X</code>: a standardized column for the treatment, one for each confounder, plus a final column of all 1s — a standard regression trick enabling a baseline offset.'),
+      L('beta, *_ = np.linalg.lstsq(X, y, rcond=None)', 'Asks numpy\'s linear algebra library for the best-fit coefficients (<code>beta</code>) predicting <code>y</code> from <code>X</code> — the actual regression step. <code>*_</code> discards extra diagnostic outputs not needed here.'),
+      L('resid = y - X @ beta; dof = n - X.shape[1]', '<code>resid</code> is the leftover error after the fit; <code>dof</code> ("degrees of freedom") is how many independent data points remain after fitting all those coefficients — needed for the statistics below.'),
+      L('t = float(beta[0] / (se[0] + 1e-12))', '<code>beta[0]</code> is specifically the treatment\'s own coefficient. Dividing by its standard error turns it into a t-statistic: how many standard errors away from zero this effect is.'),
+      L('return partial, t, 0.5 * (np.sqrt(f ** 4 + 4 * f ** 2) - f ** 2)', 'Hands back the partial correlation, the t-statistic, and the Cinelli–Hazlett robustness value itself — this exact published formula. You don\'t need to derive it, just know what it measures: how strong a hidden confounder would need to be to erase this effect.')
+    ]},
+    r9: { file: 'phononic_methods.py — defect_demo()', lang: 'Python', lines: [
+      L('def defect_demo(N, absg, remove_site, seed=0, T=1500, BURN=200):', 'The real defect-tolerance test: <code>N</code> is chain length, <code>absg</code> is coupling strength, <code>remove_site</code> is which resonator to "kill," <code>seed</code> makes the test exactly repeatable, <code>T</code> is simulated timesteps, <code>BURN</code> is startup time thrown away before scoring.'),
+      L('rng = np.random.default_rng(seed); u = rng.standard_normal(T)', 'Creates a seeded random generator, then generates <code>T</code> random numbers — the actual input signal driving the reservoir. The same seed reproduces the exact same "random" input every run.'),
+      L('y = np.zeros(T); y[2:] = u[:-2]; yb = y[BURN:]', 'Builds the target task: <code>y</code> is the input delayed by 2 steps (a "remember what happened 2 steps ago" memory task); <code>yb</code> is that target with the burn-in cut off.'),
+      L('out = {}', 'An empty dictionary to collect results for both coupling regimes.'),
+      L('for label, g in (("topological", +absg), ("trivial", -absg)):', 'Loops exactly twice — once with positive coupling labeled "topological," once with the same magnitude negated, labeled "trivial." This literally defines the two regimes being compared.'),
+      L('Xin = reservoir_states(N, g, u=u, win_scale=0.12)[0][BURN:]; wout = ridge(Xin, yb)', 'Runs the INTACT reservoir on the real input, then trains a linear readout (Foundation 03\'s "train only the readout" step) to predict the target from those states.'),
+      L('Xdef = reservoir_states(N, g, u=u, win_scale=0.12, remove=remove_site)[0][BURN:]', 'Re-runs the SAME reservoir and input, but with <code>remove_site</code> actually killed — the defect condition.'),
+      L('pen = nmse(Xdef @ wout, yb) - nmse(Xdef @ ridge(Xdef, yb), yb)', 'The defect-tolerance score: compares the OLD (intact-trained) readout on the damaged reservoir against a readout freshly retrained on the damage. A small penalty means the original readout still basically works; a big penalty means the defect genuinely broke it.'),
+      L('out[label] = dict(g=g, penalty=pen, target=yb,', 'Starts storing every real number needed to report this condition honestly, not just the summary penalty.'),
+      L('pred_intact=Xin @ wout, pred_defect=Xdef @ wout)', 'The rest of that stored record: the actual predictions under both conditions.'),
+      L('return out', 'Hands back both conditions\' full results, ready to compare topological vs. trivial directly.')
+    ]},
+    r10: { file: 'prediction/trend_predictor.py — _linear_trend()', lang: 'Python', lines: [
+      L('def _linear_trend(points: List[Tuple[float, float]]) -> Tuple[float, float]:', 'Takes a list of (time, value) pairs and returns a (slope, latest_value) pair — the entire "fit a trend line" step.'),
+      L('n = len(points)', 'How many readings there are.'),
+      L('if n < 2:', 'You can\'t fit a line through fewer than 2 points.'),
+      L('return 0.0, points[-1][1]', 'So with 0 or 1 points, report "no trend yet" (slope 0) and the last known value.'),
+      L('t0 = points[0][0]', 'The timestamp of the very first reading, used as a reference point.'),
+      L('xs = [p[0] - t0 for p in points]', 'Converts every timestamp into "seconds since the first reading" instead of an absolute clock time — keeps the numbers small and well-behaved.'),
+      L('ys = [p[1] for p in points]', 'Pulls out just the actual values (temperature, pH, whatever) into their own list.'),
+      L('mean_x = sum(xs) / n', 'The average time.'),
+      L('mean_y = sum(ys) / n', 'The average value.'),
+      L('num = sum((x - mean_x) * (y - mean_y) for x, y in zip(xs, ys))', 'The numerator of the standard least-squares slope formula: for every point, how far it is from average time times how far from average value, summed.'),
+      L('den = sum((x - mean_x) ** 2 for x in xs)', 'The denominator: how spread out the timestamps are.'),
+      L('slope = num / den if den > 1e-9 else 0.0', 'The actual slope — numerator over denominator, unless the denominator is essentially zero (all readings at nearly the same instant), defaulting to 0 instead of dividing by (near) zero.'),
+      L('return slope, ys[-1]', 'Hands back the computed slope and the most recent reading — everything needed to project forward and report where things are headed.')
+    ]},
+    r11: { file: 'detection/roi.py — point_in_polygon()', lang: 'Python', lines: [
+      L('def point_in_polygon(point: Point, polygon: List[Point]) -> bool:', 'Takes one point (a detected object\'s location) and a polygon (the driveway boundary you drew), returns True if the point is inside it.'),
+      L('x, y = point', 'Unpacks the point tuple into its x and y coordinates.'),
+      L('n = len(polygon)', 'How many corners the polygon has.'),
+      L('inside = False', 'Starts by assuming the point is OUTSIDE — this flag flips every time the algorithm crosses a boundary edge.'),
+      L('x1, y1 = polygon[0]', 'Starts at the polygon\'s first corner.'),
+      L('for i in range(1, n + 1):', 'Walks through every edge of the polygon, one at a time.'),
+      L('x2, y2 = polygon[i % n]', 'The next corner; <code>i % n</code> wraps back to corner 0 once you reach the end, so the last edge correctly connects back to the first, closing the shape.'),
+      L('if y > min(y1, y2):', 'The classic "ray casting" test: imagine shooting a ray straight out from the point; this checks whether the current edge is even in the right vertical range to cross that ray.'),
+      L('if y <= max(y1, y2):', 'Narrows the vertical range check further.'),
+      L('if x <= max(x1, x2):', 'A quick horizontal shortcut check before the more expensive intersection math.'),
+      L('if y1 != y2:', 'Avoids a divide-by-zero for a perfectly horizontal edge.'),
+      L('x_intersect = (y - y1) * (x2 - x1) / (y2 - y1) + x1', 'Computes exactly where this edge crosses the point\'s horizontal ray.'),
+      L('else:', 'The horizontal-edge case.'),
+      L('x_intersect = x1', 'No real intersection to compute; just use this edge\'s x position.'),
+      L('if x1 == x2 or x <= x_intersect:', 'If the point\'s ray actually crosses this edge to its left...'),
+      L('inside = not inside', '...flip the inside/outside flag. An odd number of crossings means inside; even means outside — the whole algorithm\'s logic in one line.'),
+      L('x1, y1 = x2, y2', 'Moves on: this edge\'s far corner becomes the next edge\'s near corner.'),
+      L('return inside', 'After checking every edge, whatever the flag ended up as is the real answer.')
+    ]},
+    r12: { file: 'sensor_duo/spiking_detector.py — _build_brain_source()', lang: 'Python', lines: [
+      L('def _build_brain_source(channels: List[str]) -> str:', 'Takes a list of channel names (like "cpu_temp_c") and returns a complete, valid <code>.spk</code> file as a string — this function writes real Spikeling source code, on the fly, from Python.'),
+      L('lines = [', 'Starts building the output line by line, as a list of strings joined into one file at the end.'),
+      L('"# Auto-generated by sensor_duo.spiking_detector -- one LIF",', 'The first line of the generated file: a comment explaining where it came from.'),
+      L('"# neuron per channel, see that module for the drive-current model.",', 'The comment continues.'),
+      L('"",', 'A blank line, for readability in the generated file.'),
+      L(']', 'Closes the initial list.'),
+      L('for ch in channels:', 'Loops once per channel requested.'),
+      L('lines.append(', 'Begins adding a new line to the growing list.'),
+      L('f"neuron {_neuron_name(ch)} threshold={_NEURON_THRESHOLD} "', 'An f-string: builds real <code>.spk</code> syntax by substituting in this channel\'s generated neuron name and the shared threshold constant.'),
+      L('f"leak={_NEURON_LEAK}  type=LIF"', 'Continues that same logical line (Python lets you place two string literals next to each other and it joins them), adding leak and neuron type.'),
+      L(')', 'Closes the append call — one full <code>neuron ...</code> line has now been added, per channel.'),
+      L('lines.append("")', 'A blank spacer line before the next section.'),
+      L('for ch in channels:', 'A second loop, generating "what to do when this neuron fires."'),
+      L('lines.append(f"action {_neuron_name(ch)} -> [{_action_name(ch)}]")', 'Generates one real <code>action NAME -&gt; [COMMAND]</code> line per channel, wiring each neuron\'s spike to a named callback.'),
+      L('lines.append("")', 'Another spacer.'),
+      L('lines.append("refractory=0ms")', 'The final line: these brains use no refractory period — each channel\'s neuron can fire again the very next tick it\'s ready to.'),
+      L('return "\\n".join(lines)', 'Glues every collected line together with real newline characters, producing one complete, ready-to-compile <code>.spk</code> file as a single string.')
+    ]},
+    r13: { file: 'kernel/src/network.rs — GenericNetwork::tick()', lang: 'Rust', lines: [
+      L('fn tick(&mut self) {', 'Defines a method named <code>tick</code> on the network struct; <code>&amp;mut self</code> means it\'s allowed to modify the network\'s own real data. Rust uses curly braces, not indentation, to mark where the body starts.'),
+      L('let tick_n = self.tick_count;', '<code>let</code> declares a new local variable, copying the current tick number out before it changes, so it can be stamped onto any neuron that fires this tick.'),
+      L('self.tick_count += 1;', 'Advances the network\'s own tick counter for next time. Every real statement in Rust ends with a semicolon.'),
+      L('let mut fired = Vec::new();', 'Creates a new, empty, growable list (a <code>Vec</code>); <code>mut</code> marks it as one this function can add items to.'),
+      L('for (i, neuron) in self.neurons.iter_mut().enumerate() {', 'Loops over every neuron, giving both its index <code>i</code> and a directly-modifiable reference to it — <code>iter_mut()</code> means "let me change these," <code>enumerate()</code> means "also give me the index."'),
+      L('if neuron.refractory_remaining > 0 {', 'Checks whether this specific neuron is still refractory.'),
+      L('neuron.refractory_remaining -= 1;', 'If so, counts its refractory timer down by one tick.'),
+      L('continue;', 'And skips straight to the next neuron — no leak, no stimulus, no fire check.'),
+      L('}', 'Closes that inner <code>if</code> block.'),
+      L('neuron.v = (neuron.v - neuron.leak).max(0.0);', '(Only reached if not refractory.) The leak step: subtract leak from potential, then <code>.max(0.0)</code> clamps it so it never goes below zero.'),
+      L('neuron.v += self.pending_stimulus[i];', 'Adds in whatever stimulus was scheduled for this exact neuron from the previous tick\'s firings.'),
+      L('if neuron.v >= neuron.threshold {', 'The fire check.'),
+      L('neuron.v = 0.0;', 'Resets potential on fire.'),
+      L('neuron.fire_count += 1;', 'Bumps its lifetime fire counter.'),
+      L('neuron.last_fire_tick = Some(tick_n);', 'Records exactly which tick it fired on; <code>Some(...)</code> is Rust\'s way of saying "this optional value is actually present."'),
+      L('neuron.refractory_remaining = neuron.refractory_ticks;', 'Enters its refractory period.'),
+      L('fired.push(i);', 'Adds this neuron\'s index to the list of everything that fired this tick.'),
+      L('}', 'Closes the fire-check <code>if</code> block.'),
+      L('}', 'Closes the <code>for</code> loop over every neuron — the real LIF update, in a real kernel, in Rust, identical logic to r5\'s GDScript and Foundation 01.')
+    ]},
+    r14: { file: 'db.py — deduct_credit()', lang: 'Python', lines: [
+      L('def deduct_credit(raw_key: str, amount: int = 1) -> bool:', 'Takes a raw API key string and how many credits to deduct (defaulting to 1), returns True if the deduction actually happened.'),
+      L('key_hash = _hash_key(raw_key)', 'Never stores or looks up the raw key directly — hashes it first (same idea as a password hash), so even the database itself never holds the real, usable key.'),
+      L('with get_conn() as conn:', 'Opens a database connection using a <code>with</code> block, which guarantees it gets closed afterward even if something goes wrong inside.'),
+      L('cur = conn.execute(', 'Runs a SQL command and gets back a cursor describing what happened.'),
+      L('"UPDATE api_keys SET credits = credits - ?, last_used_at = ? "', 'The SQL: update the row, setting credits to its current value minus some amount, stamping the current time. The <code>?</code> marks are placeholders, safely filled in below — not string-pasted, which is how SQL-injection bugs happen.'),
+      L('"WHERE key_hash = ? AND credits >= ?",', 'The crucial part: only update the row matching this key hash, AND only if it currently has enough credits. This single WHERE clause is what makes the check-and-deduct atomic — the check and the write happen as one indivisible database operation, so two simultaneous requests can\'t both pass the check and double-spend the same credits.'),
+      L('(amount, time.time(), key_hash, amount),', 'The actual values filled into those four <code>?</code> placeholders, in order.'),
+      L(')', 'Closes the <code>execute()</code> call.'),
+      L('return cur.rowcount > 0', '<code>rowcount</code> is how many rows the UPDATE actually changed. If the WHERE clause matched nothing (credits too low), rowcount is 0 — meaning "insufficient balance, nothing deducted" — and this returns False.')
+    ]},
+    r15: { file: 'spiking_fusion_verdict.py — fuse_verdict()', lang: 'Python', lines: [
+      L('def fuse_verdict(rv, test_evidence_confirmed,', 'Starts defining the function that combines two completely different systems\' outputs: <code>rv</code> is MethodLM\'s robustness value for a candidate driver, <code>test_evidence_confirmed</code> is whether Concept Shakedown found real test coverage for it.'),
+      L('rv_drive_scale=RV_DRIVE_SCALE, test_evidence_drive=TEST_EVIDENCE_DRIVE):', 'Two more parameters, with default values already filled in from named constants defined earlier in the file — most callers don\'t need to specify them.'),
+      L('runtime = SpikelingRuntime(_get_ast())', 'Creates a real, running instance of the compiled Spikeling network described in <code>fusion_verdict.spk</code> — an actual spiking neural network, not a metaphor for one.'),
+      L('fusion = runtime.neurons["fusion"]', 'Grabs a direct reference to the one neuron in that tiny network, named "fusion," so its state can be inspected after stimulating it.'),
+      L('rv_drive = max(0.0, rv) * rv_drive_scale', 'Converts the robustness value into an actual stimulus current: never negative, scaled up by a constant so a "solid" RV produces a meaningful drive.'),
+      L('test_drive = test_evidence_drive if test_evidence_confirmed is True else 0.0', 'A one-line if/else: gives the neuron full test-evidence stimulus only if test coverage was explicitly confirmed True — checking <code>is True</code> specifically because "unknown" (<code>None</code>) contributes zero here, not a free pass.'),
+      L('runtime.stimulate("fusion", 0.0, drive=rv_drive)', 'Actually injects the RV-based current into the real neuron, at simulated time 0.0.'),
+      L('runtime.stimulate("fusion", 1.0, drive=test_drive)', 'Injects the test-evidence current a moment later, at simulated time 1.0.'),
+      L('return {"fused_confirmed": fusion.fire_count > 0,', 'Starts building the result; the headline answer is simply whether the real neuron actually fired at all.'),
+      L('"rv_drive": rv_drive, "test_drive": test_drive,', 'Also returns the raw numbers that went in, so a human debugging this can see exactly why it did or didn\'t fire.'),
+      L('"membrane_potential": fusion.membrane_potential}', 'And the neuron\'s final leftover potential — nothing about the verdict is a black box.')
+    ]},
+    r16: { file: 'collectors/base.py — CollectorRegistry', lang: 'Python', lines: [
+      L('class CollectorRegistry:', 'Defines the blueprint for the one object that owns every data collector and runs them all each tick.'),
+      L('def __init__(self):', 'The special "constructor" that runs automatically when a new CollectorRegistry is created, setting up its starting state.'),
+      L('self._collectors: list[Collector] = []', 'An empty list, on this specific instance, that will hold every registered collector.'),
+      L('self.last_errors: list[CollectorError] = []', 'An empty list to remember which collectors failed on the most recent tick.'),
+      L('def register(self, collector: Collector) -> None:', 'The function other code calls to add a new data source.'),
+      L('self._collectors.append(collector)', 'Adds it to the internal list.'),
+      L('def collect_all(self) -> Dict[str, float]:', 'The function that actually runs every registered collector for one tick and returns one merged dictionary.'),
+      L('merged: Dict[str, float] = {}', 'An empty dictionary to accumulate this tick\'s readings from every collector.'),
+      L('errors: list[CollectorError] = []', 'An empty list to record any collector that fails this specific tick.'),
+      L('for c in self._collectors:', 'Loops over every registered collector.'),
+      L('try:', 'Begins a block that watches for errors without crashing the whole program if one happens.'),
+      L('values = c.collect()', 'Calls this collector\'s own <code>collect()</code> method, asking it for its real current readings.'),
+      L('except Exception as exc:', 'If <code>collect()</code> raised any kind of error, catch it here instead of letting it crash the entire tick.'),
+      L('errors.append(CollectorError(collector_name=c.name, error=str(exc)))', 'Records which collector failed and why, as a real structured object.'),
+      L('continue', 'And moves on to the next collector — one flaky collector never takes down the others.'),
+      L('for k, v in values.items():', '(Only reached if <code>collect()</code> succeeded.) Loops over every channel this collector returned.'),
+      L('merged[f"{c.name}.{k}"] = v', 'Stores it in the shared dictionary, prefixed with the collector\'s own name — so two collectors can each have a channel called "status" without colliding.'),
+      L('self.last_errors = errors', 'After every collector, saves this tick\'s failure list where other code (like alerting) can check it.'),
+      L('return merged', 'Hands back every successfully-collected channel from every collector, merged into one flat dictionary.')
+    ]}
+  };
+
+  function escapeHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  function taNormalize(s) {
+    return s.replace(/\s+/g, ' ').trim();
+  }
+
+  function taDraw(id) {
+    var data = TA_DATA[id];
+    var mount = document.getElementById('ta-' + id);
+    if (!mount || !data) return;
+    var idx = mount.getAttribute('data-idx');
+    idx = idx === null ? 0 : parseInt(idx, 10);
+
+    var html = '<p class="ta-intro">Real, unedited excerpt from <code>' + escapeHtml(data.file) +
+      '</code> (' + data.lang + '). Type each highlighted line exactly — indentation is flexible, ' +
+      'everything else must match. Blank lines are skipped.</p>';
+    html += '<div class="ta-source">';
+    data.lines.forEach(function(l, i) {
+      var cls = i < idx ? 'row done' : (i === idx ? 'row current' : 'row');
+      html += '<div class="' + cls + '"><span class="ln">' + (i + 1) + '</span><span class="code">' +
+        escapeHtml(l.code) + '</span></div>';
+    });
+    html += '</div>';
+
+    if (idx < data.lines.length) {
+      html += '<div class="ta-progress">Line ' + (idx + 1) + ' of ' + data.lines.length + '</div>';
+      html += '<div class="ta-inputrow">';
+      html += '<input class="ta-input" id="ta-input-' + id + '" autocomplete="off" autocapitalize="off" ' +
+        'autocorrect="off" spellcheck="false" placeholder="Type the highlighted line exactly" />';
+      html += '<div class="ta-btnrow"><button class="ta-check-btn" id="ta-check-' + id + '" type="button">Check</button>' +
+        '<button class="ta-hint-btn" id="ta-skip-' + id + '" type="button">Skip →</button></div>';
+      html += '</div>';
+      html += '<div class="ta-feedback" id="ta-feedback-' + id + '"></div>';
+      if (idx > 0) {
+        html += '<div class="ta-explain">' + data.lines[idx - 1].explain + '</div>';
+      }
+    } else {
+      html += '<div class="ta-done-banner"><b>Done.</b> You just typed a real, unedited excerpt from this repo\'s ' +
+        'actual source, line by line.</div>';
+      html += '<div class="ta-explain">' + data.lines[data.lines.length - 1].explain + '</div>';
+      html += '<div class="ta-btnrow" style="margin-top:10px;"><button class="ta-reset-btn" id="ta-reset-' + id +
+        '" type="button">↺ Start over</button></div>';
+    }
+
+    mount.innerHTML = html;
+
+    var input = document.getElementById('ta-input-' + id);
+    var checkBtn = document.getElementById('ta-check-' + id);
+    var skipBtn = document.getElementById('ta-skip-' + id);
+    var resetBtn = document.getElementById('ta-reset-' + id);
+
+    function setIdx(n) {
+      mount.setAttribute('data-idx', n);
+      taDraw(id);
+    }
+    function check() {
+      var val = taNormalize(input.value);
+      var target = taNormalize(data.lines[idx].code);
+      if (val.length > 0 && val === target) {
+        setIdx(idx + 1);
+      } else {
+        input.classList.add('wrong');
+        var fb = document.getElementById('ta-feedback-' + id);
+        fb.textContent = 'Not quite — check every character (indentation doesn\'t matter, everything else does).';
+        fb.className = 'ta-feedback err';
+      }
+    }
+    if (checkBtn) {
+      checkBtn.addEventListener('click', check);
+      input.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); check(); } });
+      input.addEventListener('input', function() { input.classList.remove('wrong'); });
+    }
+    if (skipBtn) skipBtn.addEventListener('click', function() { setIdx(idx + 1); });
+    if (resetBtn) resetBtn.addEventListener('click', function() { setIdx(0); });
+  }
+
+  Object.keys(TA_DATA).forEach(taDraw);
+})();
+</script>

@@ -80,6 +80,8 @@ import time
 import uuid
 from pathlib import Path
 
+import requests
+
 sys.path.insert(0, str(Path(__file__).parent / "core"))
 
 from mcp.server.fastmcp import FastMCP
@@ -447,6 +449,71 @@ def close_sandbox(sandbox_id: str) -> dict:
         return {"closed": False, "reason": "unknown sandbox_id"}
     _release(entry["adapter"])
     return {"closed": True, "sandbox_id": sandbox_id}
+
+
+# ---------------------------------------------------------------------
+# SPIKEMESH tools -- real wrappers over the actual running mesh server
+# (mesh_rag_server.py, ai-apps/), not a reimplementation. Every tool here
+# just calls the same live HTTP endpoints the SPIKEMESH web UI itself
+# calls, so this MCP server and the browser UI are two front ends onto
+# the exact same real backend, not two separate systems that could drift.
+# ---------------------------------------------------------------------
+SPIKEMESH_URL = "http://100.117.59.73:5055"
+
+
+@mcp.tool()
+def spikemesh_ask(question: str) -> dict:
+    """Ask SPIKEMESH's real mesh assistant a question. Answers are grounded
+    in real semantic vault search + knowledge base, gated by a compiled
+    Spikeling LIF confidence neuron (refuses on weak evidence) AND a
+    second real LLM grounding check (catches matching-words-wrong-domain
+    false positives) -- both checks are real and can honestly refuse, not
+    guaranteed to return an answer."""
+    r = requests.post(f"{SPIKEMESH_URL}/ask", json={"question": question}, timeout=90)
+    r.raise_for_status()
+    return r.json()
+
+
+@mcp.tool()
+def spikemesh_investigate(csv_path: str, target: str, question: str = "") -> dict:
+    """Real MethodLM causal investigation via SPIKEMESH -- pre-registered
+    tests (CORR/STRAT/RUN/ADJUST), collider/bias audit, Cinelli-Hazlett
+    robustness value. Real cost: multi-turn reasoning, tens of seconds."""
+    r = requests.post(f"{SPIKEMESH_URL}/investigate",
+                       json={"csv_path": csv_path, "target": target, "question": question}, timeout=200)
+    r.raise_for_status()
+    return r.json()
+
+
+@mcp.tool()
+def spikemesh_project_registry() -> dict:
+    """Real git hygiene across all 16 tracked local repos (uncommitted
+    files, ahead/behind origin, staleness) -- live `git status`, not a log."""
+    r = requests.get(f"{SPIKEMESH_URL}/pm/registry", timeout=15)
+    r.raise_for_status()
+    return r.json()
+
+
+@mcp.tool()
+def spikemesh_guard_status() -> dict:
+    """Real server-guard data (disk/network/Defender/event-log/etc.) from
+    its actual SQLite DB -- honestly reports whether it's live or stale."""
+    r = requests.get(f"{SPIKEMESH_URL}/guard/status", timeout=15)
+    r.raise_for_status()
+    return r.json()
+
+
+@mcp.tool()
+def spikemesh_generate_playbook(target_type: str, target_name: str, code_file: str = "") -> dict:
+    """Generates a real, grounded (AI-written, not hand-verified) study
+    page via SPIKEMESH -- target_type is 'project' (target_name = a
+    tracked project, optionally code_file = a specific real file path
+    within it) or 'vault' (target_name = a topic for semantic search)."""
+    r = requests.post(f"{SPIKEMESH_URL}/playbook/generate",
+                       json={"target_type": target_type, "target_name": target_name,
+                             "code_file": code_file or None}, timeout=90)
+    r.raise_for_status()
+    return r.json()
 
 
 if __name__ == "__main__":
