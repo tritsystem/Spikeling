@@ -220,6 +220,47 @@ class ReservoirAttentionReadout(nn.Module):
     def __init__(self, M, d_model=32, use_ternary=False, use_spiking=False):
         super().__init__()
         self.use_ternary, self.use_spiking = use_ternary, use_spiking
+        # DIAGNOSED (2026-07-31): the amplitude-only [0,1] task variant (see
+        # pyspike_reservoir_attention_acoustic_groundtruth.py) trained to a
+        # much worse NMSE (0.72 vs 0.118) than the original signed [-1,1]
+        # task at identical lr/epochs. A pure-numpy replay of
+        # ReservoirBank.forward ruled out marker contrast as the cause (the
+        # marker/background ||v|| contrast ratio was ~3.28 vs ~3.36 for the
+        # two tasks -- barely different, and the marker was actually MORE
+        # often the global peak for the nonneg task, 97.5% vs 90%). The real
+        # cause: the nonneg task's smaller input range + smaller marker
+        # value (2.5 vs 3.0) make reservoir_states ~30% smaller in absolute
+        # magnitude, and Wk/Wv/Wo are initialized at a fixed scale
+        # regardless of task, so attention scores start out proportionally
+        # "quieter" and need more training to reach the same resolving
+        # power.
+        #
+        # FIRST ATTEMPT, FAILED (2026-07-31): per-timestep LayerNorm(M).
+        # Verified on real hardware (kimchi, torch 2.11+cu128, GPU): broke
+        # BOTH tasks -- signed NMSE 0.118->0.917 (near-random), nonneg
+        # 0.72->0.78 (no better). Root cause understood after the fact:
+        # LayerNorm normalizes each timestep's feature vector independently,
+        # which forces every tick's vector norm to roughly the same value
+        # (~sqrt(M)) regardless of its ORIGINAL magnitude -- but hop-1
+        # attention's whole localization mechanism depends on the marker
+        # tick having a much LARGER ||v|| than background ticks (the exact
+        # ~3.3x contrast measured above). LayerNorm erases precisely that
+        # per-timestep contrast to fix a different (between-task) scale
+        # mismatch -- treating the symptom's wrong axis.
+        #
+        # SECOND ATTEMPT, ALSO FAILED (2026-07-31): a single scalar
+        # rescale per sequence (RMS over the whole (T,M) block, not
+        # per-timestep) -- theory was this corrects the between-task
+        # magnitude difference while leaving every timestep's magnitude
+        # relative to its own sequence untouched. Verified on kimchi
+        # (GPU): signed NMSE 0.118->0.161 (worse), nonneg 0.72->0.711
+        # (+1.2%, noise-level, not a real fix). The magnitude-mismatch
+        # theory itself may not be the real driver -- reverted to
+        # baseline (no normalization) rather than keep a change that
+        # doesn't earn its cost. NEXT: try the plain lr/epoch sweep
+        # memory already suggested for the nonneg task specifically
+        # (won't touch the signed task's already-working result, unlike
+        # an architecture change that affects both).
         self.q_find = nn.Parameter(torch.randn(d_model) * 0.1)  # global 'find the marker' query
         self.Wk = nn.Parameter(torch.randn(M, d_model) * 0.1)
         self.Wv = nn.Parameter(torch.randn(M, d_model) * 0.1)

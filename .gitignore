@@ -58,3 +58,20 @@ test_result*.txt
 node_modules/
 *.log.err
 acoustic_baseline*.json
+
+# SPIKEMESH (ai-apps/): huge/generated/personal, kept out for the same reasons as above
+# offline Wiktionary dump + kiwix tool binaries -- 8.6GB, nowhere near git's limits
+ai-apps/kiwix/
+# regeneratable build artifact (embeddings index), not source
+ai-apps/vault_semantic_index/
+# generated output, regeneratable from playbook_generator.py
+ai-apps/generated_playbooks/
+# generated backup snapshots
+ai-apps/backups/
+# personal: real project-manager notes (same reasoning as vault/ above)
+ai-apps/pm_data/
+# personal: real dismantling/diagnostic photos of physical hardware
+electronics_captures/
+# personal test captures, not source
+live_frame.jpg
+voice_clip.wav
