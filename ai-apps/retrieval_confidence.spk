@@ -1,0 +1,18 @@
+# Retrieval confidence gate for SPIKEMESH's /ask endpoint.
+#
+# A real LIF neuron, not a hardcoded if-statement, decides whether the
+# retrieved context is actually strong enough to answer from -- calibrated
+# on real observed scores from this exact vault index (see
+# mesh_rag_server.py's build_context): genuinely relevant queries scored
+# 6.1-6.5, a deliberately irrelevant control query scored 2.4-2.7. drive =
+# best_score * 20 puts relevant hits comfortably over threshold=100 and
+# irrelevant hits comfortably under it, with real margin on both sides.
+#
+# If it doesn't fire, SPIKEMESH says so honestly instead of asking Ollama
+# to generate a confident-sounding answer from weak, unsupported context --
+# the same discipline MethodLM already enforces for causal claims, applied
+# here to retrieval-grounded answers.
+
+neuron confidence threshold=100 leak=15
+
+refractory=0ms

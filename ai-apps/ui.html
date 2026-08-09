@@ -1,0 +1,786 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SPIKEMESH</title>
+<style>
+  /* Deep-black minimalist dashboard, understated accent, dashboard-of-modules
+     pattern -- the real, confirmed shape of Project NOMAD's own Command
+     Center (dashboard -> distinct module tiles -> module detail view),
+     not a copy of their exact pixels (couldn't verify those directly --
+     both the live site and GitHub are blocked from this browser sandbox),
+     but a genuine structural match. */
+  :root {
+    --bg: #000000; --panel: #111111; --panel-2: #1a1a1a; --ink: #f2f2f2; --ink-dim: #a3a3a3;
+    --ink-faint: #6b6b6b; --rule: #262626; --accent: #4fd1c5; --accent-ink: #001512;
+    --ok: #4fd1a1; --err: #f0806b; --mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, monospace;
+    --sans: -apple-system, "Segoe UI", Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #fafafa; --panel: #ffffff; --panel-2: #f0f0f0; --ink: #111111; --ink-dim: #4a4a4a;
+      --ink-faint: #8a8a8a; --rule: #dcdcdc; --accent: #0f8f82; --accent-ink: #ffffff;
+      --ok: #1f8f5f; --err: #b3402c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.5; }
+
+  header {
+    padding: 18px 24px; border-bottom: 1px solid var(--rule); display: flex; align-items: center;
+    justify-content: space-between; gap: 12px; flex-wrap: wrap; position: sticky; top: 0; background: var(--bg); z-index: 5;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+  .brand-mark {
+    width: 26px; height: 26px; border-radius: 7px; background: var(--accent); flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-weight: 800;
+    font-size: 13px; color: var(--accent-ink);
+  }
+  .brand-text { font-weight: 700; font-size: 15px; letter-spacing: 0.01em; }
+  .brand-text .sub { display: block; font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--ink-faint); font-weight: 500; margin-top: 1px; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 7px; background: var(--ink-faint); }
+  .status-dot.ok { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 20%, transparent); }
+  .status-dot.err { background: var(--err); box-shadow: 0 0 0 3px color-mix(in srgb, var(--err) 20%, transparent); }
+  #status-line { font-family: var(--mono); font-size: 11.5px; color: var(--ink-faint); display: flex; align-items: center; }
+
+  main { max-width: 920px; margin: 0 auto; padding: 32px 24px 100px; }
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ---- Dashboard ---- */
+  .dash-heading { margin-bottom: 22px; }
+  .dash-heading h1 { font-size: 21px; margin: 0 0 4px; font-weight: 700; }
+  .dash-heading p { margin: 0; color: var(--ink-dim); font-size: 14px; }
+
+  .module-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+  .module-card {
+    background: var(--panel); border: 1px solid var(--rule); border-radius: 12px; padding: 20px;
+    cursor: pointer; text-align: left; transition: border-color 0.15s ease; display: flex; flex-direction: column; gap: 10px;
+  }
+  .module-card:hover { border-color: var(--accent); }
+  .module-icon {
+    width: 38px; height: 38px; border-radius: 9px; background: var(--panel-2); display: flex; align-items: center;
+    justify-content: center; font-size: 18px;
+  }
+  .module-card h3 { margin: 0; font-size: 15.5px; font-weight: 700; }
+  .module-card p { margin: 0; font-size: 13px; color: var(--ink-dim); line-height: 1.45; flex: 1; }
+  .module-tag {
+    font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-faint);
+    display: flex; align-items: center; gap: 6px; margin-top: 2px;
+  }
+
+  /* ---- Module detail views ---- */
+  .back-link {
+    font-family: var(--mono); font-size: 12px; color: var(--ink-faint); background: none; border: none;
+    cursor: pointer; padding: 0; margin-bottom: 18px; display: flex; align-items: center; gap: 6px;
+  }
+  .back-link:hover { color: var(--ink); }
+  .view-title { font-size: 19px; font-weight: 700; margin: 0 0 6px; }
+  .view-desc { color: var(--ink-dim); font-size: 13.5px; margin: 0 0 24px; }
+
+  textarea, input[type="text"] {
+    width: 100%; font-family: var(--sans); font-size: 15px; padding: 12px 14px; background: var(--panel);
+    color: var(--ink); border: 1px solid var(--rule); border-radius: 9px; resize: vertical;
+  }
+  textarea:focus, input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  label { display: block; font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.07em;
+    color: var(--ink-faint); margin: 18px 0 7px; }
+  label:first-child { margin-top: 0; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .row > div { flex: 1; min-width: 180px; }
+
+  button.primary {
+    font-family: var(--sans); font-weight: 700; font-size: 13.5px; background: var(--accent); color: var(--accent-ink);
+    border: none; border-radius: 9px; padding: 12px 20px; cursor: pointer; margin-top: 18px;
+  }
+  button.primary:hover { filter: brightness(1.08); }
+  button.primary:disabled { opacity: 0.5; cursor: default; }
+
+  .result { margin-top: 22px; }
+  .answer {
+    background: var(--panel); border: 1px solid var(--rule); border-left: 3px solid var(--accent);
+    border-radius: 0 10px 10px 0; padding: 18px 20px; font-size: 15px; white-space: pre-wrap;
+  }
+  .sources { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+  .source-tag {
+    font-family: var(--mono); font-size: 11.5px; color: var(--ink-dim); background: var(--panel-2);
+    border: 1px solid var(--rule); border-radius: 6px; padding: 6px 10px;
+  }
+  .verdict-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+  @media (max-width: 520px) { .verdict-grid { grid-template-columns: 1fr; } }
+  .stat { background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 14px 16px; }
+  .stat .k { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-faint); }
+  .stat .v { font-family: var(--mono); font-size: 21px; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .share-bar-row { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 12px; margin-top: 7px; }
+  .share-bar-row .name { width: 110px; flex-shrink: 0; color: var(--ink-dim); text-align: right; }
+  .share-bar-track { flex: 1; height: 8px; background: var(--panel-2); border-radius: 4px; overflow: hidden; }
+  .share-bar-fill { height: 100%; background: var(--accent); }
+
+  .loading { font-family: var(--mono); font-size: 13px; color: var(--ink-faint); margin-top: 18px; }
+  .error-box {
+    margin-top: 18px; background: var(--panel); border-left: 3px solid var(--err); border-radius: 0 10px 10px 0;
+    padding: 14px 16px; color: var(--err); font-family: var(--mono); font-size: 13px;
+  }
+  .hint { font-size: 13px; color: var(--ink-faint); margin-top: 6px; }
+
+  table.status-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13.5px; }
+  table.status-table td { padding: 10px 4px; border-bottom: 1px solid var(--rule); }
+  table.status-table td:first-child { color: var(--ink-faint); font-family: var(--mono); font-size: 12px; width: 40%; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand" id="brand-home">
+    <div class="brand-mark">M</div>
+    <div class="brand-text">SPIKEMESH<span class="sub">private mesh node</span></div>
+  </div>
+  <div id="status-line"><span class="status-dot" id="status-dot"></span><span id="status-text">checking...</span></div>
+</header>
+
+<main>
+
+  <!-- ---- Dashboard ---- -->
+  <section id="view-dashboard" class="view active">
+    <div class="dash-heading">
+      <h1>Modules</h1>
+      <p>Everything here runs on your own hardware, over your own mesh. No account, no cloud.</p>
+    </div>
+    <div class="module-grid">
+      <button class="module-card" data-open="ask" type="button">
+        <div class="module-icon">💬</div>
+        <h3>AI Assistant</h3>
+        <p>Ask anything -- answers pull from your vault notes and knowledge base, generated locally.</p>
+        <div class="module-tag"><span class="status-dot" id="mod-dot-ollama"></span>Ollama · this machine</div>
+      </button>
+      <button class="module-card" data-open="investigate" type="button">
+        <div class="module-icon">🔎</div>
+        <h3>Root Cause</h3>
+        <p>Real causal investigation over your own data -- pre-registered tests, not just an opinion.</p>
+        <div class="module-tag">MethodLM harness</div>
+      </button>
+      <button class="module-card" data-open="pm" type="button">
+        <div class="module-icon">🗂</div>
+        <h3>Project Manager</h3>
+        <p>Real git hygiene across every known project, notes synced via git, and a safe command palette.</p>
+        <div class="module-tag">16 real repos tracked</div>
+      </button>
+      <button class="module-card" data-open="tasks" type="button">
+        <div class="module-icon">🤖</div>
+        <h3>Agent Activity</h3>
+        <p>Routing log of Spike's 10-specialist agent team -- which specialist fired, and why.</p>
+        <div class="module-tag">task_decisions.jsonl</div>
+      </button>
+      <button class="module-card" data-open="playbook" type="button">
+        <div class="module-icon">📓</div>
+        <h3>Playbook Generator</h3>
+        <p>AI-generated study material for any tracked project or vault topic -- real source, LLM-written Q&amp;A.</p>
+        <div class="module-tag">Grounded, not hand-verified</div>
+      </button>
+      <button class="module-card" data-open="guard" type="button">
+        <div class="module-icon">🛡</div>
+        <h3>Server Guard</h3>
+        <p>Offline server health + intrusion signals -- disk, network, Defender, event log.</p>
+        <div class="module-tag" id="guard-tag-status">checking freshness...</div>
+      </button>
+      <button class="module-card" data-open="status" type="button">
+        <div class="module-icon">📡</div>
+        <h3>System Status</h3>
+        <p>Live health of every real service on this mesh node.</p>
+        <div class="module-tag">Auto-refreshing</div>
+      </button>
+    </div>
+  </section>
+
+  <!-- ---- Ask ---- -->
+  <section id="view-ask" class="view">
+    <button class="back-link" data-back type="button">&larr; Modules</button>
+    <h2 class="view-title">AI Assistant</h2>
+    <p class="view-desc">Semantic search over your vault + knowledge base, then generated by the mesh's own model.</p>
+    <label for="ask-q">Question</label>
+    <textarea id="ask-q" rows="3" placeholder="Ask anything..."></textarea>
+    <button class="primary" id="ask-btn" type="button">Ask</button>
+    <div id="ask-loading" class="loading" style="display:none;">Retrieving context and generating -- real inference, not instant...</div>
+    <div id="ask-error" class="error-box" style="display:none;"></div>
+    <div id="ask-result" class="result" style="display:none;">
+      <div class="answer" id="ask-answer"></div>
+      <div class="sources" id="ask-sources"></div>
+    </div>
+  </section>
+
+  <!-- ---- Investigate ---- -->
+  <section id="view-investigate" class="view">
+    <button class="back-link" data-back type="button">&larr; Modules</button>
+    <h2 class="view-title">Root Cause</h2>
+    <p class="view-desc">Real MethodLM investigation: pre-registered tests, backdoor adjustment, collider/bias audit.</p>
+    <div class="row">
+      <div>
+        <label for="inv-csv">CSV path (on the server machine)</label>
+        <input type="text" id="inv-csv" placeholder="C:\Users\gbran\llama_demo\sensor_run.csv" />
+      </div>
+      <div>
+        <label for="inv-target">Target column</label>
+        <input type="text" id="inv-target" placeholder="error" />
+      </div>
+    </div>
+    <label for="inv-q">Question</label>
+    <input type="text" id="inv-q" placeholder="What drives the target?" />
+    <div class="hint">Not instant -- multi-turn reasoning, typically tens of seconds.</div>
+    <button class="primary" id="inv-btn" type="button">Investigate</button>
+    <div id="inv-loading" class="loading" style="display:none;">Running pre-registered causal tests -- this genuinely takes a while...</div>
+    <div id="inv-error" class="error-box" style="display:none;"></div>
+    <div id="inv-result" class="result" style="display:none;">
+      <div class="answer" id="inv-verdict"></div>
+      <div class="verdict-grid">
+        <div class="stat"><div class="k">Preregistrations</div><div class="v" id="inv-pre"></div></div>
+        <div class="stat"><div class="k">Real tests run</div><div class="v" id="inv-nrun"></div></div>
+      </div>
+      <div style="margin-top:16px;">
+        <label style="margin:0 0 8px;">Ternary readout evidence share</label>
+        <div id="inv-share"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---- Project Manager (real) ---- -->
+  <section id="view-pm" class="view">
+    <button class="back-link" data-back type="button">&larr; Modules</button>
+    <h2 class="view-title">Project Manager</h2>
+    <p class="view-desc">Real git hygiene across every known project. Notes are versioned via git -- pull/push this repo from another device for real cross-device collaboration.</p>
+
+    <label style="margin:0 0 8px;">Projects</label>
+    <div id="pm-projects"></div>
+    <div id="pm-projects-error" class="error-box" style="display:none;"></div>
+
+    <label>Add a note (commits to the PM git repo)</label>
+    <div class="row">
+      <div><input type="text" id="pm-note-project" placeholder="Project name (e.g. tribe)" /></div>
+    </div>
+    <textarea id="pm-note-text" rows="2" placeholder="Note text..." style="margin-top:8px;"></textarea>
+    <button class="primary" id="pm-note-btn" type="button">Commit note</button>
+    <div id="pm-note-error" class="error-box" style="display:none;"></div>
+
+    <label style="margin-top:26px;">Recent PM commits</label>
+    <div id="pm-log"></div>
+
+    <label style="margin-top:26px;">Command palette</label>
+    <div class="hint" style="margin-top:0;">A deliberately small, explicit allowlist -- not a generic command executor, since this is reachable from any device on the mesh.</div>
+    <div id="pm-commands" style="margin-top:10px;"></div>
+    <div id="pm-run-output" class="answer" style="display:none; margin-top:14px; white-space:pre-wrap; font-family:var(--mono); font-size:12.5px;"></div>
+  </section>
+
+  <!-- ---- Agent Activity ---- -->
+  <section id="view-tasks" class="view">
+    <button class="back-link" data-back type="button">&larr; Modules</button>
+    <h2 class="view-title">Project Manager</h2>
+    <p class="view-desc">Real task-routing decisions from Spike's 10-specialist agent team.</p>
+    <div class="verdict-grid" id="tasks-summary" style="margin-top:0;">
+      <div class="stat"><div class="k">Total logged</div><div class="v" id="tasks-total">--</div></div>
+      <div class="stat"><div class="k">Most-fired specialist</div><div class="v" id="tasks-top-agent" style="font-size:15px;">--</div></div>
+    </div>
+    <div style="margin-top:20px;">
+      <label style="margin:0 0 8px;">Specialist fire counts</label>
+      <div id="tasks-agent-bars"></div>
+    </div>
+    <div style="margin-top:22px;">
+      <label style="margin:0 0 8px;">Recent tasks</label>
+      <div id="tasks-recent"></div>
+    </div>
+    <div id="tasks-error" class="error-box" style="display:none;"></div>
+  </section>
+
+  <!-- ---- Playbook Generator ---- -->
+  <section id="view-playbook" class="view">
+    <button class="back-link" data-back type="button">&larr; Modules</button>
+    <h2 class="view-title">Playbook Generator</h2>
+    <p class="view-desc">Real, grounded, but AI-generated (not hand-verified) study material for any tracked project or vault topic.</p>
+
+    <label for="pb-type">Target</label>
+    <select id="pb-type" style="width:100%; font-family:var(--sans); font-size:15px; padding:12px 14px; background:var(--panel); color:var(--ink); border:1px solid var(--rule); border-radius:9px;">
+      <option value="project">A tracked project</option>
+      <option value="vault">A vault topic (semantic search)</option>
+    </select>
+
+    <div id="pb-project-fields">
+      <label for="pb-project-select">Project</label>
+      <select id="pb-project-select" style="width:100%; font-family:var(--sans); font-size:15px; padding:12px 14px; background:var(--panel); color:var(--ink); border:1px solid var(--rule); border-radius:9px;">
+        <option value="">Loading real projects...</option>
+      </select>
+      <label for="pb-file-select">Code file (real listing, not an auto-guess)</label>
+      <select id="pb-file-select" style="width:100%; font-family:var(--sans); font-size:15px; padding:12px 14px; background:var(--panel); color:var(--ink); border:1px solid var(--rule); border-radius:9px;">
+        <option value="">Auto-select (heuristic)</option>
+      </select>
+    </div>
+
+    <div id="pb-vault-fields" style="display:none;">
+      <label for="pb-name">Topic</label>
+      <input type="text" id="pb-name" placeholder="e.g. tribe trust system" />
+    </div>
+
+    <button class="primary" id="pb-generate-btn" type="button">Generate</button>
+    <div id="pb-loading" class="loading" style="display:none;">Generating -- real Ollama calls, several seconds...</div>
+    <div id="pb-error" class="error-box" style="display:none;"></div>
+    <div id="pb-result" class="result" style="display:none;"></div>
+
+    <label style="margin-top:26px;">Previously generated</label>
+    <div id="pb-list"></div>
+  </section>
+
+  <!-- ---- Server Guard ---- -->
+  <section id="view-guard" class="view">
+    <button class="back-link" data-back type="button">&larr; Modules</button>
+    <h2 class="view-title">Server Guard</h2>
+    <p class="view-desc" id="guard-desc">Loading...</p>
+    <div id="guard-channels"></div>
+    <div id="guard-error" class="error-box" style="display:none;"></div>
+  </section>
+
+  <!-- ---- Status ---- -->
+  <section id="view-status" class="view">
+    <button class="back-link" data-back type="button">&larr; Modules</button>
+    <h2 class="view-title">System Status</h2>
+    <p class="view-desc">Refreshes automatically every 15s.</p>
+    <table class="status-table" id="status-table">
+      <tr><td>Loading...</td><td></td></tr>
+    </table>
+  </section>
+
+</main>
+
+<script>
+(function () {
+  var API = window.location.origin;
+
+  function openView(name) {
+    document.querySelectorAll('.view').forEach(function (v) { v.classList.remove('active'); });
+    document.getElementById('view-' + name).classList.add('active');
+    window.scrollTo(0, 0);
+  }
+  document.querySelectorAll('[data-open]').forEach(function (el) {
+    el.addEventListener('click', function () {
+      openView(el.dataset.open);
+      if (el.dataset.open === 'tasks') loadTasks();
+      if (el.dataset.open === 'pm') loadPM();
+      if (el.dataset.open === 'guard') loadGuard();
+      if (el.dataset.open === 'playbook') loadPlaybookList();
+    });
+  });
+  document.querySelectorAll('[data-back]').forEach(function (el) {
+    el.addEventListener('click', function () { openView('dashboard'); });
+  });
+  document.getElementById('brand-home').addEventListener('click', function () { openView('dashboard'); });
+
+  function esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  // ---- Ask ----
+  var askBtn = document.getElementById('ask-btn');
+  askBtn.addEventListener('click', function () {
+    var q = document.getElementById('ask-q').value.trim();
+    if (!q) return;
+    document.getElementById('ask-loading').style.display = 'block';
+    document.getElementById('ask-error').style.display = 'none';
+    document.getElementById('ask-result').style.display = 'none';
+    askBtn.disabled = true;
+
+    fetch(API + '/ask', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: q })
+    })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        document.getElementById('ask-loading').style.display = 'none';
+        askBtn.disabled = false;
+        if (!res.ok) { throw new Error(res.d.error || 'request failed'); }
+        document.getElementById('ask-answer').textContent = res.d.answer;
+        var srcHtml = (res.d.sources || []).map(function (s) {
+          var label = s.type + (s.path ? ': ' + s.path : (s.source ? ': ' + s.source : ''));
+          if (s.score !== undefined) label += ' (score ' + s.score + ')';
+          return '<div class="source-tag">' + esc(label) + '</div>';
+        }).join('');
+        document.getElementById('ask-sources').innerHTML = srcHtml;
+        document.getElementById('ask-result').style.display = 'block';
+      })
+      .catch(function (e) {
+        document.getElementById('ask-loading').style.display = 'none';
+        askBtn.disabled = false;
+        document.getElementById('ask-error').textContent = 'Error: ' + e.message;
+        document.getElementById('ask-error').style.display = 'block';
+      });
+  });
+
+  // ---- Investigate ----
+  var invBtn = document.getElementById('inv-btn');
+  invBtn.addEventListener('click', function () {
+    var csv = document.getElementById('inv-csv').value.trim();
+    var target = document.getElementById('inv-target').value.trim();
+    var q = document.getElementById('inv-q').value.trim();
+    if (!csv || !target) return;
+    document.getElementById('inv-loading').style.display = 'block';
+    document.getElementById('inv-error').style.display = 'none';
+    document.getElementById('inv-result').style.display = 'none';
+    invBtn.disabled = true;
+
+    fetch(API + '/investigate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ csv_path: csv, target: target, question: q })
+    })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        document.getElementById('inv-loading').style.display = 'none';
+        invBtn.disabled = false;
+        if (!res.ok) { throw new Error(res.d.error || 'request failed'); }
+        var d = res.d;
+        document.getElementById('inv-verdict').textContent = 'Verdict: ' + d.verdict;
+        document.getElementById('inv-pre').textContent = d.pre;
+        document.getElementById('inv-nrun').textContent = d.nrun;
+        var shareHtml = '';
+        if (d.share) {
+          var entries = Object.entries(d.share).sort(function (a, b) { return b[1] - a[1]; });
+          var max = entries.length ? entries[0][1] : 1;
+          shareHtml = entries.map(function (e) {
+            var pct = Math.round((e[1] / max) * 100);
+            return '<div class="share-bar-row"><div class="name">' + esc(e[0]) + '</div>' +
+              '<div class="share-bar-track"><div class="share-bar-fill" style="width:' + pct + '%"></div></div>' +
+              '<div>' + (e[1] * 100).toFixed(0) + '%</div></div>';
+          }).join('');
+        }
+        document.getElementById('inv-share').innerHTML = shareHtml || '<span class="hint">Not available for this run.</span>';
+        document.getElementById('inv-result').style.display = 'block';
+      })
+      .catch(function (e) {
+        document.getElementById('inv-loading').style.display = 'none';
+        invBtn.disabled = false;
+        document.getElementById('inv-error').textContent = 'Error: ' + e.message;
+        document.getElementById('inv-error').style.display = 'block';
+      });
+  });
+
+  // ---- Project Manager (real) ----
+  function loadPM() {
+    fetch(API + '/pm/registry', { cache: 'no-store' })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        if (!res.ok) throw new Error(res.d.error || 'request failed');
+        var rows = (res.d.projects || []).map(function (p) {
+          if (!p.found) {
+            return '<div class="source-tag" style="display:block; margin-bottom:6px; padding:10px 12px;">' +
+              '<div style="color:var(--ink);">' + esc(p.name) + '</div><div>not found on this machine</div></div>';
+          }
+          var flagHtml = (p.flags || []).length
+            ? '<div style="color:var(--err); margin-top:3px;">' + esc(p.flags.join(' · ')) + '</div>'
+            : '<div style="color:var(--ok); margin-top:3px;">clean</div>';
+          var safeId = 'ghcheck-' + p.name.replace(/[^a-zA-Z0-9]/g, '_');
+          return '<div class="source-tag" style="display:block; margin-bottom:6px; padding:10px 12px;">' +
+            '<div style="color:var(--ink); display:flex; justify-content:space-between; align-items:center;">' +
+            '<span>' + esc(p.name) + '</span>' +
+            '<span style="display:flex; align-items:center; gap:8px;"><span>' + esc(p.branch || '') + '</span>' +
+            '<button class="ta-hint-btn" style="padding:4px 9px; font-size:11px;" data-ghcheck="' + esc(p.name) + '" type="button">Check GitHub</button></span></div>' +
+            flagHtml +
+            '<div style="margin-top:4px;">' + esc(p.last_commit_msg || '') + '</div>' +
+            '<div id="' + safeId + '" style="margin-top:6px; font-family:var(--mono); font-size:11.5px;"></div></div>';
+        }).join('');
+        document.getElementById('pm-projects').innerHTML = rows || '<span class="hint">No projects registered.</span>';
+        document.querySelectorAll('[data-ghcheck]').forEach(function (btn) {
+          btn.addEventListener('click', function () { runGithubCheck(btn.dataset.ghcheck); });
+        });
+      })
+      .catch(function (e) {
+        document.getElementById('pm-projects-error').textContent = 'Error (' + e.name + '): ' + e.message;
+        document.getElementById('pm-projects-error').style.display = 'block';
+      });
+
+    loadPMLog();
+
+    fetch(API + '/pm/commands', { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        document.getElementById('pm-commands').innerHTML = (d.commands || []).map(function (c) {
+          return '<button class="primary" style="margin-top:0; margin-right:8px;" data-cmd="' + esc(c.id) +
+            '" data-needs-project="' + (c.needs_project ? '1' : '0') + '" type="button">' + esc(c.label) + '</button>';
+        }).join('');
+        document.querySelectorAll('#pm-commands [data-cmd]').forEach(function (btn) {
+          btn.addEventListener('click', function () { runPMCommand(btn.dataset.cmd, btn.dataset.needsProject === '1'); });
+        });
+      });
+  }
+
+  function runGithubCheck(projectName) {
+    var safeId = 'ghcheck-' + projectName.replace(/[^a-zA-Z0-9]/g, '_');
+    var el = document.getElementById(safeId);
+    if (!el) return;
+    el.textContent = 'Checking real GitHub state...';
+    fetch(API + '/pm/github_check?project=' + encodeURIComponent(projectName), { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d.error) { el.innerHTML = '<span style="color:var(--err);">' + esc(d.error) + '</span>'; return; }
+        var color = d.in_sync ? 'var(--ok)' : 'var(--err)';
+        var line1 = 'local ' + esc(d.local_sha) + ' vs github ' + esc(d.remote_sha) +
+          ' -- <span style="color:' + color + ';">' + (d.in_sync ? 'in sync' : 'DIVERGED') + '</span>';
+        var line2 = (d.flags || []).length ? '<div style="color:var(--err); margin-top:2px;">' + esc(d.flags.join(' · ')) + '</div>' : '';
+        el.innerHTML = line1 + line2;
+      })
+      .catch(function (e) { el.innerHTML = '<span style="color:var(--err);">Error: ' + esc(e.message) + '</span>'; });
+  }
+
+  function loadPMLog() {
+    fetch(API + '/pm/log', { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        document.getElementById('pm-log').innerHTML = (d.entries || []).map(function (e) {
+          return '<div class="source-tag">' + esc(e.hash) + '  ' + esc(e.message) + '</div>';
+        }).join('') || '<span class="hint">No commits yet.</span>';
+      });
+  }
+
+  document.getElementById('pm-note-btn').addEventListener('click', function () {
+    var project = document.getElementById('pm-note-project').value.trim();
+    var text = document.getElementById('pm-note-text').value.trim();
+    var errEl = document.getElementById('pm-note-error');
+    errEl.style.display = 'none';
+    if (!project || !text) return;
+    fetch(API + '/pm/note', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project: project, text: text })
+    })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        if (!res.ok) throw new Error(res.d.error || 'request failed');
+        document.getElementById('pm-note-text').value = '';
+        loadPMLog();
+      })
+      .catch(function (e) { errEl.textContent = 'Error: ' + e.message; errEl.style.display = 'block'; });
+  });
+
+  function runPMCommand(commandId, needsProject) {
+    var project = needsProject ? document.getElementById('pm-note-project').value.trim() : null;
+    if (needsProject && !project) {
+      alert('Type a project name in the note field above first -- it doubles as the target for project-scoped commands.');
+      return;
+    }
+    var out = document.getElementById('pm-run-output');
+    out.style.display = 'block';
+    out.textContent = 'Running...';
+    fetch(API + '/pm/run', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ command_id: commandId, project: project })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        out.textContent = (d.error ? 'Error: ' + d.error : '') +
+          (d.stdout ? '\n' + d.stdout : '') + (d.stderr ? '\n' + d.stderr : '');
+      })
+      .catch(function (e) { out.textContent = 'Error: ' + e.message; });
+  }
+
+  // ---- Agent Activity ----
+  function loadTasks() {
+    document.getElementById('tasks-error').style.display = 'none';
+    fetch(API + '/tasks?limit=15', { cache: 'no-store' })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        if (!res.ok) throw new Error(res.d.error || 'request failed');
+        var d = res.d;
+        document.getElementById('tasks-total').textContent = d.total_entries;
+        var agentEntries = Object.entries(d.agent_fire_counts || {});
+        document.getElementById('tasks-top-agent').textContent = agentEntries.length ? agentEntries[0][0] : '--';
+
+        var max = agentEntries.length ? agentEntries[0][1] : 1;
+        document.getElementById('tasks-agent-bars').innerHTML = agentEntries.map(function (e) {
+          var pct = Math.round((e[1] / max) * 100);
+          return '<div class="share-bar-row"><div class="name">' + esc(e[0]) + '</div>' +
+            '<div class="share-bar-track"><div class="share-bar-fill" style="width:' + pct + '%"></div></div>' +
+            '<div>' + e[1] + '</div></div>';
+        }).join('') || '<span class="hint">No entries yet.</span>';
+
+        document.getElementById('tasks-recent').innerHTML = (d.recent || []).map(function (t) {
+          var task = t.task ? esc(t.task) : '(empty task string)';
+          var fired = (t.fired || []).join(', ') || 'none';
+          return '<div class="source-tag" style="display:block; margin-bottom:6px; padding:10px 12px;">' +
+            '<div style="color:var(--ink); margin-bottom:3px;">' + task + '</div>' +
+            '<div>project: ' + esc(t.project || '?') + ' &middot; fired: ' + esc(fired) +
+            ' &middot; agents_run: ' + esc(t.agents_run != null ? t.agents_run : '?') + '</div></div>';
+        }).join('') || '<span class="hint">No entries yet.</span>';
+      })
+      .catch(function (e) {
+        document.getElementById('tasks-error').textContent = 'Error: ' + e.message;
+        document.getElementById('tasks-error').style.display = 'block';
+      });
+  }
+
+  // ---- Playbook Generator ----
+  function loadPlaybookList() {
+    fetch(API + '/playbook/list', { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        document.getElementById('pb-list').innerHTML = (d.playbooks || []).map(function (p) {
+          return '<div class="source-tag"><a href="' + esc(p.url) + '" target="_blank" style="color:var(--accent);">' +
+            esc(p.filename) + '</a></div>';
+        }).join('') || '<span class="hint">None generated yet.</span>';
+      })
+      .catch(function () {});
+  }
+
+  // ---- Real project + file pickers (not free-typed, not auto-guessed) ----
+  var pbTypeSelect = document.getElementById('pb-type');
+  var pbProjectSelect = document.getElementById('pb-project-select');
+  var pbFileSelect = document.getElementById('pb-file-select');
+  var pbProjectsLoaded = false;
+
+  function loadPBProjectList() {
+    if (pbProjectsLoaded) return;
+    fetch(API + '/pm/registry', { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var names = (d.projects || []).filter(function (p) { return p.found; }).map(function (p) { return p.name; });
+        pbProjectSelect.innerHTML = names.map(function (n) { return '<option value="' + esc(n) + '">' + esc(n) + '</option>'; }).join('');
+        pbProjectsLoaded = true;
+        if (names.length) loadPBFileList(names[0]);
+      })
+      .catch(function () { pbProjectSelect.innerHTML = '<option value="">Failed to load projects</option>'; });
+  }
+
+  function loadPBFileList(projectName) {
+    pbFileSelect.innerHTML = '<option value="">Auto-select (heuristic)</option><option value="" disabled>Loading real files...</option>';
+    fetch(API + '/playbook/project_files?project=' + encodeURIComponent(projectName), { cache: 'no-store' })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        if (!res.ok) throw new Error(res.d.error || 'request failed');
+        var opts = '<option value="">Auto-select (heuristic)</option>' +
+          (res.d.files || []).map(function (f) {
+            return '<option value="' + esc(f.path) + '">' + esc(f.path) + ' (' + f.size + ' bytes)</option>';
+          }).join('');
+        pbFileSelect.innerHTML = opts;
+      })
+      .catch(function (e) {
+        pbFileSelect.innerHTML = '<option value="">Auto-select (heuristic)</option>';
+      });
+  }
+
+  pbTypeSelect.addEventListener('change', function () {
+    var isProject = pbTypeSelect.value === 'project';
+    document.getElementById('pb-project-fields').style.display = isProject ? 'block' : 'none';
+    document.getElementById('pb-vault-fields').style.display = isProject ? 'none' : 'block';
+    if (isProject) loadPBProjectList();
+  });
+  pbProjectSelect.addEventListener('change', function () {
+    if (pbProjectSelect.value) loadPBFileList(pbProjectSelect.value);
+  });
+  loadPBProjectList(); // project is the default selected type on load
+
+  document.getElementById('pb-generate-btn').addEventListener('click', function () {
+    var type = pbTypeSelect.value;
+    var name = type === 'project' ? pbProjectSelect.value : document.getElementById('pb-name').value.trim();
+    var codeFile = type === 'project' ? pbFileSelect.value : null;
+    if (!name) return;
+    document.getElementById('pb-loading').style.display = 'block';
+    document.getElementById('pb-error').style.display = 'none';
+    document.getElementById('pb-result').style.display = 'none';
+
+    fetch(API + '/playbook/generate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target_type: type, target_name: name, code_file: codeFile })
+    })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        document.getElementById('pb-loading').style.display = 'none';
+        if (!res.ok) throw new Error(res.d.error || 'request failed');
+        var d = res.d;
+        document.getElementById('pb-result').innerHTML =
+          '<div class="answer">Generated ' + d.qa_count + ' real Q&amp;A pairs from: ' + esc((d.sources || []).join(', ')) +
+          '. <a href="' + esc(d.url) + '" target="_blank" style="color:var(--accent);">Open it &rarr;</a></div>';
+        document.getElementById('pb-result').style.display = 'block';
+        loadPlaybookList();
+      })
+      .catch(function (e) {
+        document.getElementById('pb-loading').style.display = 'none';
+        document.getElementById('pb-error').textContent = 'Error: ' + e.message;
+        document.getElementById('pb-error').style.display = 'block';
+      });
+  });
+
+  // ---- Server Guard ----
+  function fmtAge(s) {
+    if (s == null) return 'unknown';
+    if (s < 90) return Math.round(s) + 's ago';
+    if (s < 5400) return Math.round(s / 60) + 'm ago';
+    return Math.round(s / 3600) + 'h ago';
+  }
+  function loadGuard() {
+    fetch(API + '/guard/status', { cache: 'no-store' })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        if (!res.ok) throw new Error(res.d.error || 'request failed');
+        var d = res.d;
+        document.getElementById('guard-desc').textContent = d.live
+          ? d.channel_count + ' real channels, live (newest reading ' + fmtAge(d.newest_reading_age_seconds) + ').'
+          : d.channel_count + ' real channels, but STALE -- guard.py is not currently running (newest reading ' +
+            fmtAge(d.newest_reading_age_seconds) + '). This is real historical data, not a live feed.';
+        var byPrefix = {};
+        (d.channels || []).forEach(function (c) {
+          var prefix = c.channel.split('.')[0];
+          (byPrefix[prefix] = byPrefix[prefix] || []).push(c);
+        });
+        var html = Object.keys(byPrefix).sort().map(function (prefix) {
+          var rows = byPrefix[prefix].map(function (c) {
+            return '<div style="display:flex; justify-content:space-between; padding:4px 0;">' +
+              '<span>' + esc(c.channel) + '</span><span style="color:var(--ink-faint);">' +
+              esc(c.value) + '  &middot;  ' + fmtAge(c.age_seconds) + '</span></div>';
+          }).join('');
+          return '<div class="source-tag" style="display:block; margin-bottom:8px; padding:12px 14px;">' +
+            '<div style="color:var(--ink); font-weight:700; margin-bottom:4px;">' + esc(prefix) + '</div>' + rows + '</div>';
+        }).join('');
+        document.getElementById('guard-channels').innerHTML = html || '<span class="hint">No data yet.</span>';
+      })
+      .catch(function (e) {
+        document.getElementById('guard-error').textContent = 'Error: ' + e.message;
+        document.getElementById('guard-error').style.display = 'block';
+      });
+  }
+  function refreshGuardTag() {
+    fetch(API + '/guard/status', { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var el = document.getElementById('guard-tag-status');
+        if (!el) return;
+        el.textContent = d.live ? 'Live' : ('Stale · ' + fmtAge(d.newest_reading_age_seconds));
+      })
+      .catch(function () {});
+  }
+  refreshGuardTag();
+
+  // ---- Status (drives both the header dot and the dashboard module tag) ----
+  function refreshStatus() {
+    fetch(API + '/health', { cache: 'no-store' })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        var dot = document.getElementById('status-dot');
+        var text = document.getElementById('status-text');
+        var modDot = document.getElementById('mod-dot-ollama');
+        var reachable = res.ok && res.d.status === 'ok';
+        dot.className = 'status-dot ' + (reachable ? 'ok' : 'err');
+        text.textContent = reachable ? 'mesh server reachable' : 'server responded with an error';
+        if (modDot) modDot.className = 'status-dot ' + (reachable ? 'ok' : 'err');
+        var rows = Object.entries(res.d).map(function (e) {
+          var v = typeof e[1] === 'object' ? JSON.stringify(e[1]) : e[1];
+          return '<tr><td>' + esc(e[0]) + '</td><td>' + esc(v) + '</td></tr>';
+        }).join('');
+        document.getElementById('status-table').innerHTML = rows || '<tr><td>no data</td><td></td></tr>';
+      })
+      .catch(function () {
+        document.getElementById('status-dot').className = 'status-dot err';
+        document.getElementById('status-text').textContent = 'mesh server unreachable';
+        var modDot = document.getElementById('mod-dot-ollama');
+        if (modDot) modDot.className = 'status-dot err';
+        document.getElementById('status-table').innerHTML = '<tr><td>unreachable</td><td></td></tr>';
+      });
+  }
+  refreshStatus();
+  setInterval(refreshStatus, 15000);
+})();
+</script>
+</body>
+</html>

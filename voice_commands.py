@@ -169,7 +169,15 @@ Use web search whenever the question needs current or real-time information
 guess or rely on stale training data for those.
 
 If the question is genuinely ambiguous, ask ONE short clarifying question
-back instead of guessing."""
+back instead of guessing.
+
+REAL JUDGMENT, NOT JUST A PERSONA: "casual" is a tone instruction, not
+permission to drop critical thinking. Don't just agree and escalate an
+open-ended plan without pushback; flag real regulatory/legal/safety exposure
+and unverified claims (competitive, cost, margin) as you notice them, not
+after the fact. Stay honest and grounded even while casual -- see
+CLAUDE_CLI_PREAMBLE's fuller version of this note for the concrete failure
+mode this addresses."""
 
 def claude_answer(text):
     """Returns a plain-text answer string, or None if not configured / the
@@ -236,7 +244,46 @@ price or fact after searching, SAY SO plainly -- never fill the gap with a
 generic guess dressed up as an answer. Specific and honest beats broad.
 
 Keep normal answers to 2-4 sentences; a research/comparison or repo summary
-can be a short paragraph. If genuinely ambiguous, ask ONE short question."""
+can be a short paragraph. If genuinely ambiguous, ask ONE short question.
+
+REAL JUDGMENT, NOT JUST A PERSONA (2026-07-28): "make sure claude oversees
+what the bot says to me" / "make the spikeling's main brain claude" -- the
+casual "talk like a buddy" tone above is a STYLE instruction, not permission
+to drop critical thinking. A live conversation escalated a business-idea
+brainstorm from 5 products to 50 to "a whole cloud platform" with nothing but
+"hell yeah" and hype at every step -- zero pushback on feasibility, unit
+economics, or regulatory exposure (e.g. framing a sleep-apnea detector or a
+hearing-aid DSP module as just another maker product, when both are actually
+regulated medical device categories in most countries). That is a real
+failure mode to actively guard against, not an acceptable side effect of
+"casual": stay honest and grounded even while casual. Concretely:
+  - Don't just agree and escalate. If a plan's scope keeps growing (5 things
+    -> 20 -> 50), say so plainly instead of matching the energy.
+  - Flag real-world risk you actually know about -- regulatory/legal
+    exposure (medical devices, safety-critical equipment, liability),
+    unverified competitive claims ("nobody else does this"), and cost/margin
+    claims that ignore real overhead (certification, assembly, support,
+    returns) -- BEFORE they're built on top of, not as a footnote after.
+  - "Casual" means tone, not content. A buddy who actually has your back
+    tells you when an idea has a real problem; that's more useful than one
+    who just hypes everything up, and it's the actual point of asking a
+    real model instead of a slot machine.
+
+APPLY THE ACTUAL GBRANAA-HUE METHOD, not generic caution -- this project's
+own agent pipeline (see PREREGISTER_PREAMBLE/PEER_REVIEW_PREAMBLE below)
+already runs on it for code; use the SAME discipline here for claims, not a
+softer imitation of it:
+  - When you assert something checkable (a price, a margin, "nobody else
+    does this," a technical capability), that's a claim -- mark it as
+    MEASURED (you actually searched/verified it this conversation) or
+    ASSUMED (stated from general knowledge, not checked). Never blur the two
+    together as if both were equally solid.
+  - Before agreeing a plan is sound, ask yourself what would make it FALSE,
+    the same way a pre-registered claim has to be falsifiable before it
+    counts as real. "Nobody else does X" and "this costs $4, sells for $40"
+    are exactly the kind of claims that sound right and are usually never
+    actually checked -- check them (web search) or flag them as unchecked,
+    don't just repeat them back with more confidence each time."""
 
 def _strip_markdown(s):
     """Light cleanup so TTS doesn't read markdown syntax aloud."""
@@ -558,6 +605,11 @@ def do_record_gif(seconds=4, fps=4):
 # and read inside the handler synchronously -- same call, no race.
 _pending_arg = ""
 _pending_experiment_lang = "python"
+# set alongside _pending_arg when the matched CLAUDE_CODE prefix was the
+# "new" variant (see CLAUDE_CODE_NEW_PREFIXES) -- tells the handler to reset
+# _last_claude_session before running, forcing a genuinely fresh Claude
+# conversation instead of auto-continuing the last one in this project.
+_pending_claude_new_session = False
 
 def do_search():
     query = _pending_arg
@@ -682,7 +734,40 @@ Match the existing file's style, indentation (tabs in GDScript), and typing
 conventions. Prefer changes that a reader can verify against the file without
 running it."""
 
-def do_claude_code(task=None, project_dir=None, tools=None, timeout=300):
+# LIVE PROGRESS + SESSION CONTINUITY (2026-07-28): "interact fully with
+# claude remotely" -- the old do_claude_code() ran a single blocking
+# subprocess.run() and stayed completely silent for the whole task (up to
+# 300-900s), then dumped one final summary. That's "fire a task and wait
+# blind," not interaction. Two changes:
+#   1. --output-format stream-json relays each real tool call live via
+#      say() AS IT HAPPENS (already TTS-suppressed for Discord/webui, see
+#      _suppress_tts above -- this doesn't add speaker noise).
+#   2. --resume <session_id> lets a FOLLOW-UP message continue the same
+#      Claude conversation (it remembers prior turns) instead of starting
+#      blind each time -- tracked per project_dir so switching projects
+#      doesn't resume the wrong conversation.
+_last_claude_session = {"id": None, "project_dir": None}
+
+def _relay_claude_event(event):
+    """One stream-json line -> a short live status via say(), or nothing for
+    events with nothing worth announcing. The final result text is handled
+    by the caller (returned, not said here), so it can be combined with the
+    handler's own "done." wrapper."""
+    if event.get("type") != "assistant":
+        return
+    for block in (event.get("message", {}) or {}).get("content", []) or []:
+        if block.get("type") != "tool_use":
+            continue
+        name = block.get("name", "?")
+        inp = block.get("input", {}) or {}
+        detail = inp.get("file_path") or inp.get("path") or inp.get("pattern") or inp.get("command") or ""
+        detail = str(detail)
+        if "/" in detail or "\\" in detail:
+            detail = os.path.basename(detail)
+        detail = detail[:60]
+        say(f"→ {name}({detail})" if detail else f"→ {name}")
+
+def do_claude_code(task=None, project_dir=None, tools=None, timeout=300, resume=False):
     """Runs an agentic Claude Code task in the confined project dir with an
     editing (no-Bash) tool allowlist. Returns a short plain-text summary.
     Only ever called from its handler, which only fires after the admin
@@ -690,7 +775,10 @@ def do_claude_code(task=None, project_dir=None, tools=None, timeout=300):
     _pending_arg (the original single-entry-point call shape); do_agent_task
     below calls this directly with an already-clarified task string.
     `project_dir` defaults to Spikeling but may be any dir from the PROJECTS
-    allowlist (resolved by the caller)."""
+    allowlist (resolved by the caller). `resume=True` continues the last
+    Claude conversation in this SAME project_dir, if any (see
+    _last_claude_session above) -- a genuine follow-up, not a fresh blind
+    task."""
     task = task if task is not None else _pending_arg
     project_dir = project_dir or CLAUDE_CODE_PROJECT_DIR
     tools = tools or CLAUDE_CODE_TOOLS
@@ -704,15 +792,65 @@ def do_claude_code(task=None, project_dir=None, tools=None, timeout=300):
             "You do NOT have shell access -- if a step\nneeds a command, say so instead of trying.",
             "You DO have shell access here (see the shell rules in the task).")
     prompt = f"{preamble}\n\nTask: {task}"
+
+    # SECURITY FIX (2026-07-28): --allowedTools alone is NOT a hard
+    # restriction -- verified empirically that a Bash tool_use call actually
+    # EXECUTES even when Bash is excluded from --allowedTools (a real gap in
+    # the safety assumption this whole no-Bash design was built on: "Bash is
+    # NOT in the allowlist, so it physically cannot run arbitrary commands"
+    # was not true). --disallowedTools IS a real, verified-working hard
+    # block (confirmed: the model correctly reports it has no Bash access
+    # and no shell command executes). Explicitly deny Bash whenever it isn't
+    # meant to be available (i.e. tools doesn't already include it for a
+    # research project).
+    args = [CLAUDE_CLI, "-p", "--allowedTools", *tools,
+            "--output-format", "stream-json", "--verbose"]
+    if "Bash" not in tools:
+        args += ["--disallowedTools", "Bash"]
+    if resume and _last_claude_session["id"] and _last_claude_session["project_dir"] == project_dir:
+        args += ["--resume", _last_claude_session["id"]]
+
     try:
-        p = subprocess.run([CLAUDE_CLI, "-p", "--allowedTools", *tools],
-                            input=prompt, cwd=project_dir,
-                            capture_output=True, text=True,
-                            encoding="utf-8", errors="replace", timeout=timeout)
-        return _strip_markdown(p.stdout.strip()) or None
+        proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE, cwd=project_dir, text=True,
+                                 encoding="utf-8", errors="replace")
+    except Exception as e:
+        print(f"(Claude Code task failed to start: {e})", flush=True)
+        return None
+
+    result_text = None
+    start = time.time()
+    try:
+        proc.stdin.write(prompt)
+        proc.stdin.close()
+        for line in proc.stdout:
+            if time.time() - start > timeout:
+                proc.kill()
+                print("(Claude Code task timed out, killed)", flush=True)
+                break
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                event = json.loads(line)
+            except ValueError:
+                continue
+            _relay_claude_event(event)
+            if event.get("type") == "result":
+                result_text = event.get("result")
+                sid = event.get("session_id")
+                if sid:
+                    _last_claude_session["id"] = sid
+                    _last_claude_session["project_dir"] = project_dir
     except Exception as e:
         print(f"(Claude Code task failed: {e})", flush=True)
-        return None
+    finally:
+        try:
+            proc.wait(timeout=5)
+        except Exception:
+            proc.kill()
+
+    return _strip_markdown(result_text.strip()) if result_text else None
 
 # Modular "agent task" layer on top of do_claude_code(): before touching any
 # files, Claude first self-assesses whether the request is actually
@@ -776,8 +914,13 @@ def do_agent_task(task):
     project_dir, project_name, task = resolve_project(task)
     vault_dir = os.path.join(VAULT_DIR, "Project Work")
     task_label = f"[{project_name}] {task}"   # so the vault ledger shows which project
+    # SECURITY FIX (2026-07-28): this call had NO tool restriction at all --
+    # not even the no-Bash allowlist do_claude_code() uses -- despite only
+    # needing to answer PROCEED/CLARIFY. --disallowedTools Bash is a real,
+    # verified-working hard block (--allowedTools alone is not -- see
+    # do_claude_code()'s own fix for the empirical proof).
     try:
-        clarify = subprocess.run([CLAUDE_CLI, "-p"],
+        clarify = subprocess.run([CLAUDE_CLI, "-p", "--disallowedTools", "Bash"],
                                  input=f"{AGENT_CLARIFY_PREAMBLE}\n\nTASK: {task}",
                                  cwd=project_dir, capture_output=True, text=True,
                                  encoding="utf-8", errors="replace", timeout=60)
@@ -1780,7 +1923,13 @@ CODE_SEARCH_PREFIXES = ["search my code for ", "search the code for ", "search m
 # Agentic Claude Code trigger (admin-gated). Deliberately unambiguous
 # prefixes so a casual message that merely mentions Claude doesn't kick off
 # a code task. The user starts an agentic task with "claude code <task>".
+# Plain prefix AUTO-CONTINUES the last Claude conversation in the same
+# project (do_claude_code's resume=True) -- a genuine follow-up remembers
+# prior turns, no need to restate context every message. The "new" variant
+# forces a fresh session instead (checked first below, since it's the more
+# specific match -- both share the same "claude code "/"code task " lead-in).
 CLAUDE_CODE_PREFIXES = ["claude code ", "code task "]
+CLAUDE_CODE_NEW_PREFIXES = ["claude code new: ", "claude code new ", "code task new: ", "code task new "]
 # Modular agent-task trigger (admin-gated, distinct from raw Claude Code --
 # this one runs the clarify-check first, see do_agent_task()). Deliberately
 # unambiguous prefixes for the same reason as CLAUDE_CODE_PREFIXES above.
@@ -1865,8 +2014,13 @@ def make_claude_code_handler():
     def handler():
         # Only reached AFTER the admin gate passed in process_text (this is
         # a SENSITIVE command). Runs the agentic edit task, then reports.
-        say("aight bro, putting Claude Code on it -- hang tight, this can take a minute.")
-        summary = do_claude_code()
+        if _pending_claude_new_session:
+            _last_claude_session["id"] = None
+            _last_claude_session["project_dir"] = None
+            say("aight bro, starting a FRESH Claude Code session -- hang tight, this can take a minute.")
+        else:
+            say("aight bro, putting Claude Code on it -- hang tight, this can take a minute.")
+        summary = do_claude_code(resume=True)
         if summary:
             say(f"done. {summary} go review the changes before you keep 'em, bro.")
         else:
@@ -2129,7 +2283,7 @@ def process_text(text, latency, input_method, raw_text=None):
     body, and especially a Claude Code task, where identifier/file-name
     casing must survive). Lowercasing is a per-character transform, so
     offsets line up between text and raw_text."""
-    global _pending_arg, _suppress_tts, _pending_experiment_lang
+    global _pending_arg, _suppress_tts, _pending_experiment_lang, _pending_claude_new_session
     raw_text = text if raw_text is None else raw_text
     # Strip wrapping quote chars -- real bug hit live: a user pasted a
     # suggested phrase including its surrounding quotes (`"write a react
@@ -2188,9 +2342,17 @@ def process_text(text, latency, input_method, raw_text=None):
             _pending_arg = sun_query
             matched_command, matched_via = "CMD_SUN", "intent"
     if not matched_command:
+        for prefix in CLAUDE_CODE_NEW_PREFIXES:   # checked first -- more specific than the plain prefixes below
+            if text.startswith(prefix):
+                _pending_arg = raw_text[len(prefix):].strip()   # original case -- code identifiers/paths must survive
+                _pending_claude_new_session = True
+                matched_command, matched_via = "CMD_CLAUDE_CODE", "prefix"
+                break
+    if not matched_command:
         for prefix in CLAUDE_CODE_PREFIXES:
             if text.startswith(prefix):
                 _pending_arg = raw_text[len(prefix):].strip()   # original case -- code identifiers/paths must survive
+                _pending_claude_new_session = False
                 matched_command, matched_via = "CMD_CLAUDE_CODE", "prefix"
                 break
     # Tribe control BEFORE the generic agent-task prefix -- bare "work on
