@@ -6,30 +6,38 @@
 <title>SPIKEMESH</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  /* Deep-black minimalist dashboard, understated accent, dashboard-of-modules
-     pattern -- the real, confirmed shape of Project NOMAD's own Command
-     Center (dashboard -> distinct module tiles -> module detail view),
-     not a copy of their exact pixels (couldn't verify those directly --
-     both the live site and GitHub are blocked from this browser sandbox),
-     but a genuine structural match. */
+  /* Palette designed around the article's own subject, not inherited defaults:
+     a "backbone" needs bone -- warm ivory ink on warm instrument-graphite,
+     never pure black/white. Two distinct accent roles, deliberately NOT the
+     same hue: --accent (copper/amber) is the interactive "discovery spark" --
+     the moment a physics theorem turns out to explain a software bug; --spine
+     (structural indigo) is reserved ONLY for the backbone/connector motif
+     itself, so the connecting structure reads as its own visual language,
+     not just a tinted copy of the button color. Dashboard-of-modules layout
+     shape stays the real, confirmed match to Project NOMAD's own Command
+     Center (dashboard -> module tiles -> detail view) -- structural
+     precedent, not a copy of unverifiable exact pixels. */
   :root {
-    --bg: #000000; --panel: #111111; --panel-2: #1a1a1a; --ink: #f2f2f2; --ink-dim: #a3a3a3;
-    --ink-faint: #6b6b6b; --rule: #262626; --accent: #4fd1c5; --accent-ink: #001512;
-    --ok: #4fd1a1; --err: #f0806b; --mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, monospace;
-    --sans: -apple-system, "Segoe UI", Arial, sans-serif;
+    --bg: #17151b; --panel: #211e26; --panel-2: #2a2630; --ink: #f2ede2; --ink-dim: #b3a99a;
+    --ink-faint: #7c7266; --rule: #34303b; --accent: #d98a4a; --accent-ink: #1a0f04;
+    --spine: #8079a6; --spine-dim: #4a4562;
+    --ok: #7fb86a; --err: #e0715a; --mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, monospace;
+    --sans: 'Inter', -apple-system, "Segoe UI", Arial, sans-serif;
+    --display: 'Fraunces', Georgia, 'Times New Roman', serif;
   }
   @media (prefers-color-scheme: light) {
     :root {
-      --bg: #fafafa; --panel: #ffffff; --panel-2: #f0f0f0; --ink: #111111; --ink-dim: #4a4a4a;
-      --ink-faint: #8a8a8a; --rule: #dcdcdc; --accent: #0f8f82; --accent-ink: #ffffff;
-      --ok: #1f8f5f; --err: #b3402c;
+      --bg: #f7f2e9; --panel: #ffffff; --panel-2: #efe8db; --ink: #1e1a22; --ink-dim: #5c5568;
+      --ink-faint: #8f8798; --rule: #e0d8c8; --accent: #b8632a; --accent-ink: #fff8ef;
+      --spine: #5c527a; --spine-dim: #b3abc7;
+      --ok: #3f8f4f; --err: #b8402c;
     }
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.5; }
-  .display { font-family: 'Fraunces', Georgia, 'Times New Roman', serif; font-optical-sizing: auto; }
+  .display { font-family: var(--display); font-optical-sizing: auto; }
 
   header {
     padding: 18px 24px; border-bottom: 1px solid var(--rule); display: flex; align-items: center;
@@ -58,14 +66,19 @@
   .dash-heading h1 { font-size: 21px; margin: 0 0 4px; font-weight: 700; }
   .dash-heading p { margin: 0; color: var(--ink-dim); font-size: 14px; }
 
-  /* ---- Backbone: the article's own connecting principle, made real UI ---- */
+  /* ---- Backbone: a literal segmented spine, not a decorative bar.
+     repeating-linear-gradient carves the rail into short vertebra blocks
+     with real gaps between them -- structural texture, not a smooth glow. ---- */
   .backbone {
-    position: relative; margin-bottom: 30px; padding: 22px 24px 22px 30px; background: var(--panel);
+    position: relative; margin-bottom: 30px; padding: 22px 24px 22px 38px; background: var(--panel);
     border: 1px solid var(--rule); border-radius: 12px; border-left: none;
   }
   .backbone::before {
-    content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px;
-    border-radius: 3px; background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 30%, transparent));
+    content: ""; position: absolute; left: 18px; top: 14px; bottom: 14px; width: 7px;
+    border-radius: 2px;
+    background: repeating-linear-gradient(180deg,
+      var(--spine) 0px, var(--spine) 7px,
+      transparent 7px, transparent 11px);
   }
   .backbone h2 { margin: 0 0 4px; font-size: 15.5px; font-weight: 600; }
   .backbone .kicker {
@@ -75,32 +88,43 @@
   .backbone-principles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px 18px; margin-top: 14px; }
   .backbone-principle { display: flex; gap: 10px; align-items: baseline; }
   .backbone-principle .n {
-    font-family: var(--mono); font-size: 11px; color: var(--ink-faint); flex-shrink: 0; width: 16px;
+    font-family: var(--mono); font-size: 11px; color: var(--spine); flex-shrink: 0; width: 16px; font-weight: 600;
   }
   .backbone-principle .t { font-size: 12.5px; color: var(--ink-dim); line-height: 1.45; }
   .backbone-source { margin-top: 14px; font-size: 11.5px; color: var(--ink-faint); }
   .backbone-source a { color: var(--ink-faint); }
 
-  /* ---- Module grid, threaded by a real spine connector ---- */
-  .module-grid-wrap { position: relative; }
+  /* ---- Module grid, threaded by a real spine: one segmented rail down
+     the center, a vertebra node + short connecting stub on every card,
+     visible at all widths (a single-column phone layout still reads as
+     cards literally strung along one spine -- if anything a bolder
+     reading of the metaphor, not a fallback). ---- */
+  .module-grid-wrap { position: relative; padding-top: 4px; }
   .module-grid-wrap::before {
-    content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px;
-    background: repeating-linear-gradient(180deg, var(--rule) 0 6px, transparent 6px 12px);
-    z-index: 0; display: none;
+    content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 5px; margin-left: -2.5px;
+    border-radius: 2px; z-index: 0;
+    background: repeating-linear-gradient(180deg,
+      var(--spine-dim) 0px, var(--spine-dim) 9px,
+      transparent 9px, transparent 14px);
   }
-  @media (min-width: 760px) { .module-grid-wrap::before { display: block; } }
-  .module-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; position: relative; z-index: 1; }
+  .module-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px 14px; position: relative; z-index: 1; }
   .module-card {
     background: var(--panel); border: 1px solid var(--rule); border-radius: 12px; padding: 20px;
-    cursor: pointer; text-align: left; transition: border-color 0.15s ease; display: flex; flex-direction: column; gap: 10px;
+    cursor: pointer; text-align: left; transition: border-color 0.15s ease, transform 0.15s ease; display: flex; flex-direction: column; gap: 10px;
     position: relative;
   }
-  .module-card::after {
-    content: ""; position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
-    width: 6px; height: 6px; border-radius: 50%; background: var(--rule); display: none;
+  .module-card::before {
+    /* connecting stub from the card's own top edge up to the spine node */
+    content: ""; position: absolute; top: -12px; left: 50%; width: 2px; height: 12px;
+    background: var(--spine-dim); transform: translateX(-50%); z-index: 0;
   }
-  @media (min-width: 760px) { .module-card::after { display: block; } }
-  .module-card:hover { border-color: var(--accent); }
+  .module-card::after {
+    content: ""; position: absolute; top: -16px; left: 50%; transform: translateX(-50%);
+    width: 9px; height: 9px; border-radius: 50%; background: var(--spine-dim);
+    border: 2px solid var(--bg); box-sizing: content-box; transition: background 0.15s ease, transform 0.15s ease;
+  }
+  .module-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .module-card:hover::after { background: var(--accent); transform: translateX(-50%) scale(1.15); }
   .module-card:hover::after { background: var(--accent); }
   .module-icon {
     width: 38px; height: 38px; border-radius: 9px; background: var(--panel-2); display: flex; align-items: center;
@@ -119,7 +143,7 @@
     cursor: pointer; padding: 0; margin-bottom: 18px; display: flex; align-items: center; gap: 6px;
   }
   .back-link:hover { color: var(--ink); }
-  .view-title { font-family: 'Fraunces', Georgia, serif; font-size: 21px; font-weight: 600; margin: 0 0 6px; }
+  .view-title { font-family: var(--display); font-size: 21px; font-weight: 600; margin: 0 0 6px; }
   .view-desc { color: var(--ink-dim); font-size: 13.5px; margin: 0 0 24px; }
 
   textarea, input[type="text"] {
