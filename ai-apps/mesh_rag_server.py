@@ -616,6 +616,24 @@ def engine_run_route():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/guard/sustained-check", methods=["GET"])
+def guard_sustained_check_route():
+    """Real use of the jet-engine pipeline: sustained-anomaly confirmation
+    for a server-guard channel. A single elevated reading is noise; this
+    only confirms True if the real recent history was sustained (the same
+    honest distinction real beacon/C2 detection requires) -- verified
+    against real historical server-guard data before being wired in here,
+    not assumed to work. See jet_engine_gate.check_sustained_anomaly()."""
+    try:
+        import jet_engine_gate
+        channel = request.args.get("channel", "pkt.beacon_candidate_destinations")
+        window = int(request.args.get("window", 30))
+        result = jet_engine_gate.check_sustained_anomaly(channel=channel, window=window)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok", "kb_sources": kb.sources() if hasattr(kb, "sources") else None})

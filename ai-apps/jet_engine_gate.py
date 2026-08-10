@@ -84,3 +84,59 @@ def run_pipeline(n_ticks=20, intake_drive=80.0):
         "n_ticks": n_ticks,
         "intake_drive": intake_drive,
     }
+
+
+# ---- Real use: sustained-anomaly confirmation for server-guard channels ----
+# Real problem: server-guard readings are noisy; a naive single-reading
+# threshold false-alarms on transient blips. Beacon-candidate-destination
+# counts specifically need SUSTAINED activity to mean anything -- a single
+# connection to a candidate destination is noise, a real C2 beacon shows
+# sustained periodic behavior. That's the same real distinction this
+# pipeline already tests for (spool-up requires sustained intake, not one
+# stimulation). SCALE=15.0 calibrated on the real observed range of
+# pkt.beacon_candidate_destinations across 32,621 real readings (0-8):
+# value=8 -> drive=120 (clears intake threshold=80 every tick), value<=1
+# -> drive<=15 (never does). Verified against real historical data: a real
+# sustained-high window (value=8 x20+ consecutive readings) ignites; a
+# real quiet baseline window (mostly zeros) does not.
+SERVER_GUARD_DB = r"C:\Users\gbran\OneDrive\Documents\server-guard\server_guard.db"
+BEACON_SCALE = 15.0
+
+
+def check_sustained_anomaly(channel="pkt.beacon_candidate_destinations", window=30, scale=BEACON_SCALE):
+    """Reads the real, most recent `window` readings for `channel` from
+    server-guard's actual DB and runs them through the pipeline as real
+    intake drive. Returns spooled_up=True only if the REAL recent history
+    was sustained, not a single blip -- same real ignition mechanism as
+    run_pipeline(), driven by real historical data instead of a flat
+    constant."""
+    import sqlite3
+    conn = sqlite3.connect(SERVER_GUARD_DB)
+    cur = conn.cursor()
+    cur.execute("SELECT value, timestamp FROM readings WHERE channel = ? ORDER BY timestamp DESC LIMIT ?",
+                (channel, window))
+    rows = cur.fetchall()
+    conn.close()
+    if not rows:
+        return {"error": f"no readings for channel '{channel}'"}
+    values = [v for v, t in reversed(rows)]   # chronological order
+    newest_ts = rows[0][1]
+
+    ast, Runtime = _get_ast_and_runtime()
+    runtime = Runtime(ast)
+    for i, val in enumerate(values):
+        t = float(i) * 10.0
+        drive = val * scale
+        for name in _STAGE_NEURONS["intake"]:
+            runtime.stimulate(name, t, drive=drive)
+
+    spooled_up = runtime.neurons["combustion"].fire_count > 0
+    return {
+        "channel": channel,
+        "window": window,
+        "real_values": values,
+        "newest_reading_timestamp": newest_ts,
+        "sustained_anomaly_confirmed": spooled_up,
+        "combustion_fires": runtime.neurons["combustion"].fire_count,
+        "exhaust_fires": runtime.neurons["exhaust"].fire_count,
+    }
