@@ -4,6 +4,9 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>SPIKEMESH</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
 <style>
   /* Deep-black minimalist dashboard, understated accent, dashboard-of-modules
      pattern -- the real, confirmed shape of Project NOMAD's own Command
@@ -26,6 +29,7 @@
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.5; }
+  .display { font-family: 'Fraunces', Georgia, 'Times New Roman', serif; font-optical-sizing: auto; }
 
   header {
     padding: 18px 24px; border-bottom: 1px solid var(--rule); display: flex; align-items: center;
@@ -54,12 +58,50 @@
   .dash-heading h1 { font-size: 21px; margin: 0 0 4px; font-weight: 700; }
   .dash-heading p { margin: 0; color: var(--ink-dim); font-size: 14px; }
 
-  .module-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+  /* ---- Backbone: the article's own connecting principle, made real UI ---- */
+  .backbone {
+    position: relative; margin-bottom: 30px; padding: 22px 24px 22px 30px; background: var(--panel);
+    border: 1px solid var(--rule); border-radius: 12px; border-left: none;
+  }
+  .backbone::before {
+    content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px;
+    border-radius: 3px; background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 30%, transparent));
+  }
+  .backbone h2 { margin: 0 0 4px; font-size: 15.5px; font-weight: 600; }
+  .backbone .kicker {
+    font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--accent); margin: 0 0 6px; display: block;
+  }
+  .backbone-principles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px 18px; margin-top: 14px; }
+  .backbone-principle { display: flex; gap: 10px; align-items: baseline; }
+  .backbone-principle .n {
+    font-family: var(--mono); font-size: 11px; color: var(--ink-faint); flex-shrink: 0; width: 16px;
+  }
+  .backbone-principle .t { font-size: 12.5px; color: var(--ink-dim); line-height: 1.45; }
+  .backbone-source { margin-top: 14px; font-size: 11.5px; color: var(--ink-faint); }
+  .backbone-source a { color: var(--ink-faint); }
+
+  /* ---- Module grid, threaded by a real spine connector ---- */
+  .module-grid-wrap { position: relative; }
+  .module-grid-wrap::before {
+    content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px;
+    background: repeating-linear-gradient(180deg, var(--rule) 0 6px, transparent 6px 12px);
+    z-index: 0; display: none;
+  }
+  @media (min-width: 760px) { .module-grid-wrap::before { display: block; } }
+  .module-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; position: relative; z-index: 1; }
   .module-card {
     background: var(--panel); border: 1px solid var(--rule); border-radius: 12px; padding: 20px;
     cursor: pointer; text-align: left; transition: border-color 0.15s ease; display: flex; flex-direction: column; gap: 10px;
+    position: relative;
   }
+  .module-card::after {
+    content: ""; position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+    width: 6px; height: 6px; border-radius: 50%; background: var(--rule); display: none;
+  }
+  @media (min-width: 760px) { .module-card::after { display: block; } }
   .module-card:hover { border-color: var(--accent); }
+  .module-card:hover::after { background: var(--accent); }
   .module-icon {
     width: 38px; height: 38px; border-radius: 9px; background: var(--panel-2); display: flex; align-items: center;
     justify-content: center; font-size: 18px;
@@ -77,7 +119,7 @@
     cursor: pointer; padding: 0; margin-bottom: 18px; display: flex; align-items: center; gap: 6px;
   }
   .back-link:hover { color: var(--ink); }
-  .view-title { font-size: 19px; font-weight: 700; margin: 0 0 6px; }
+  .view-title { font-family: 'Fraunces', Georgia, serif; font-size: 21px; font-weight: 600; margin: 0 0 6px; }
   .view-desc { color: var(--ink-dim); font-size: 13.5px; margin: 0 0 24px; }
 
   textarea, input[type="text"] {
@@ -145,9 +187,23 @@
   <!-- ---- Dashboard ---- -->
   <section id="view-dashboard" class="view active">
     <div class="dash-heading">
-      <h1>Modules</h1>
+      <h1 class="display" style="font-size:26px;">Modules</h1>
       <p>Everything here runs on your own hardware, over your own mesh. No account, no cloud.</p>
     </div>
+
+    <div class="backbone">
+      <span class="kicker">The method is the backbone</span>
+      <h2 class="display">What actually connects these modules</h2>
+      <div class="backbone-principles">
+        <div class="backbone-principle"><span class="n">01</span><span class="t">Pre-register tests before running them.</span></div>
+        <div class="backbone-principle"><span class="n">02</span><span class="t">Trust only claims that survived a real chance of failing.</span></div>
+        <div class="backbone-principle"><span class="n">03</span><span class="t">Report negative results as plainly as positive ones.</span></div>
+        <div class="backbone-principle"><span class="n">04</span><span class="t">Verify actual output whenever anything looks off.</span></div>
+      </div>
+      <div class="backbone-source">From &ldquo;The Method Is the Backbone&rdquo; &mdash; the same discipline runs through every module below, not just this page's theme.</div>
+    </div>
+
+    <div class="module-grid-wrap">
     <div class="module-grid">
       <button class="module-card" data-open="ask" type="button">
         <div class="module-icon">💬</div>
@@ -191,6 +247,19 @@
         <p>Live health of every real service on this mesh node.</p>
         <div class="module-tag">Auto-refreshing</div>
       </button>
+      <button class="module-card" data-open="engine" type="button">
+        <div class="module-icon">✈️</div>
+        <h3>Jet-Engine Pipeline</h3>
+        <p>Real staged spiking pipeline -- compressor &rarr; combustion &rarr; turbine feedback &rarr; exhaust.</p>
+        <div class="module-tag">jet_engine_spike_pipeline.spk</div>
+      </button>
+      <button class="module-card" data-open="modellab" type="button">
+        <div class="module-icon">🧪</div>
+        <h3>Model Lab</h3>
+        <p>Vet or fine-tune a local model's causal-reasoning discipline against a real 9-trap rubric.</p>
+        <div class="module-tag">quantize: disabled, measured unsafe</div>
+      </button>
+    </div>
     </div>
   </section>
 
@@ -215,6 +284,20 @@
     <button class="back-link" data-back type="button">&larr; Modules</button>
     <h2 class="view-title">Root Cause</h2>
     <p class="view-desc">Real MethodLM investigation: pre-registered tests, backdoor adjustment, collider/bias audit.</p>
+
+    <div class="backbone" style="margin-bottom:22px; padding:16px 18px 16px 24px;">
+      <span class="kicker">What this needs</span>
+      <div style="font-size:13px; color:var(--ink-dim); line-height:1.55;">
+        A real CSV file, path on this machine, with <strong>numeric columns only</strong> and one column named as the
+        <strong>target</strong> &mdash; the outcome you want explained. This calls MethodLM's own
+        <code style="font-family:var(--mono); font-size:12px;">investigate()</code> directly: <code style="font-family:var(--mono); font-size:12px;">load_csv(path, target)</code>
+        then real pre-registered backdoor-adjustment tests against it. Not free text, not images &mdash; structured, numeric, tabular data.
+      </div>
+      <div class="backbone-source" id="methodlm-gui-link-note">
+        Prefer MethodLM's own full console? <span id="methodlm-gui-status">checking whether it's running...</span>
+      </div>
+    </div>
+
     <div class="row">
       <div>
         <label for="inv-csv">CSV path (on the server machine)</label>
@@ -227,7 +310,7 @@
     </div>
     <label for="inv-q">Question</label>
     <input type="text" id="inv-q" placeholder="What drives the target?" />
-    <div class="hint">Not instant -- multi-turn reasoning, typically tens of seconds.</div>
+    <div class="hint">Not instant -- multi-turn reasoning, typically tens of seconds. The underlying reasoning loop can end in "no conclusion" on ambiguous data -- that's a real, honest outcome, not an error.</div>
     <button class="primary" id="inv-btn" type="button">Investigate</button>
     <div id="inv-loading" class="loading" style="display:none;">Running pre-registered causal tests -- this genuinely takes a while...</div>
     <div id="inv-error" class="error-box" style="display:none;"></div>
@@ -347,6 +430,52 @@
     </table>
   </section>
 
+  <!-- ---- Jet-Engine Pipeline ---- -->
+  <section id="view-engine" class="view">
+    <button class="back-link" data-back type="button">&larr; Modules</button>
+    <h2 class="view-title">Jet-Engine Pipeline</h2>
+    <p class="view-desc">Real staged spiking pipeline: compressor (converging) &rarr; combustion (nonlinear amplification) &rarr; turbine (feeds back to drive the compressor, same as a real turbojet's shaft) &rarr; exhaust.</p>
+    <div class="row">
+      <div>
+        <label for="eng-ticks">Ticks</label>
+        <input type="text" id="eng-ticks" placeholder="20" value="20" />
+      </div>
+      <div>
+        <label for="eng-drive">Intake drive</label>
+        <input type="text" id="eng-drive" placeholder="80.0" value="80.0" />
+      </div>
+    </div>
+    <button class="primary" id="eng-btn" type="button">Run pipeline</button>
+    <div id="eng-loading" class="loading" style="display:none;">Running the real staged pipeline...</div>
+    <div id="eng-error" class="error-box" style="display:none;"></div>
+    <div id="eng-result" class="result" style="display:none;">
+      <div class="answer" id="eng-output" style="font-family:var(--mono); font-size:12.5px; white-space:pre-wrap;"></div>
+    </div>
+  </section>
+
+  <!-- ---- Model Lab ---- -->
+  <section id="view-modellab" class="view">
+    <button class="back-link" data-back type="button">&larr; Modules</button>
+    <h2 class="view-title">Model Lab</h2>
+    <p class="view-desc">SpikeMesh model-onboarding lab: drop in a local model and vet or fine-tune its causal-reasoning discipline against a real 9-trap rubric.</p>
+    <div class="hint" style="margin-top:0; margin-bottom:16px; color:var(--err);">
+      Quantize is intentionally disabled here &mdash; measured, not assumed: ternary quantization completely destroyed a real fine-tuned model's causal-reasoning discipline (5/6 &rarr; 0/6), replicating an earlier vision-model failure on a new architecture. The function still exists as a documented negative result, just not served live.
+    </div>
+    <label for="lab-model">Model ID</label>
+    <input type="text" id="lab-model" placeholder="(default model)" />
+    <label for="lab-op">Operation</label>
+    <select id="lab-op" style="width:100%; font-family:var(--sans); font-size:15px; padding:12px 14px; background:var(--panel); color:var(--ink); border:1px solid var(--rule); border-radius:9px;">
+      <option value="vet">Vet (score causal-reasoning discipline)</option>
+      <option value="finetune">Finetune (bakes the real corpus in, minutes)</option>
+    </select>
+    <button class="primary" id="lab-btn" type="button">Run</button>
+    <div id="lab-loading" class="loading" style="display:none;">Running -- vet is quick, finetune can take minutes...</div>
+    <div id="lab-error" class="error-box" style="display:none;"></div>
+    <div id="lab-result" class="result" style="display:none;">
+      <div class="answer" id="lab-output" style="font-family:var(--mono); font-size:12.5px; white-space:pre-wrap;"></div>
+    </div>
+  </section>
+
 </main>
 
 <script>
@@ -365,6 +494,7 @@
       if (el.dataset.open === 'pm') loadPM();
       if (el.dataset.open === 'guard') loadGuard();
       if (el.dataset.open === 'playbook') loadPlaybookList();
+      if (el.dataset.open === 'investigate') checkMethodlmGui();
     });
   });
   document.querySelectorAll('[data-back]').forEach(function (el) {
@@ -751,6 +881,77 @@
       .catch(function () {});
   }
   refreshGuardTag();
+
+  // ---- Root Cause: methodlm's own standalone GUI reachability (checked live, not assumed) ----
+  function checkMethodlmGui() {
+    var el = document.getElementById('methodlm-gui-status');
+    if (!el) return;
+    var url = 'http://' + window.location.hostname + ':8777/api/ping';
+    fetch(url, { cache: 'no-store', mode: 'cors' })
+      .then(function (r) { if (!r.ok) throw new Error('not ok'); return r.json(); })
+      .then(function () {
+        el.innerHTML = '<a href="http://' + window.location.hostname + ':8777" target="_blank" rel="noopener" style="color:var(--accent);">Open MethodLM console &rarr;</a>';
+      })
+      .catch(function () {
+        el.textContent = 'Not running right now. On the server: cd methodlm && python methodlm_gui.py (opens on :8777).';
+      });
+  }
+
+  // ---- Jet-Engine Pipeline ----
+  document.getElementById('eng-btn').addEventListener('click', function () {
+    var ticks = document.getElementById('eng-ticks').value.trim() || '20';
+    var drive = document.getElementById('eng-drive').value.trim() || '80.0';
+    var btn = document.getElementById('eng-btn');
+    document.getElementById('eng-loading').style.display = 'block';
+    document.getElementById('eng-error').style.display = 'none';
+    document.getElementById('eng-result').style.display = 'none';
+    btn.disabled = true;
+    fetch(API + '/engine/run?ticks=' + encodeURIComponent(ticks) + '&drive=' + encodeURIComponent(drive), { cache: 'no-store' })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        document.getElementById('eng-loading').style.display = 'none';
+        btn.disabled = false;
+        if (!res.ok) throw new Error(res.d.error || 'request failed');
+        document.getElementById('eng-output').textContent = JSON.stringify(res.d, null, 2);
+        document.getElementById('eng-result').style.display = 'block';
+      })
+      .catch(function (e) {
+        document.getElementById('eng-loading').style.display = 'none';
+        btn.disabled = false;
+        document.getElementById('eng-error').textContent = 'Error: ' + e.message;
+        document.getElementById('eng-error').style.display = 'block';
+      });
+  });
+
+  // ---- Model Lab ----
+  document.getElementById('lab-btn').addEventListener('click', function () {
+    var modelId = document.getElementById('lab-model').value.trim();
+    var op = document.getElementById('lab-op').value;
+    var btn = document.getElementById('lab-btn');
+    document.getElementById('lab-loading').style.display = 'block';
+    document.getElementById('lab-error').style.display = 'none';
+    document.getElementById('lab-result').style.display = 'none';
+    btn.disabled = true;
+    var body = { op: op };
+    if (modelId) body.model_id = modelId;
+    fetch(API + '/model/lab', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        document.getElementById('lab-loading').style.display = 'none';
+        btn.disabled = false;
+        if (!res.ok) throw new Error(res.d.error || 'request failed');
+        document.getElementById('lab-output').textContent = JSON.stringify(res.d, null, 2);
+        document.getElementById('lab-result').style.display = 'block';
+      })
+      .catch(function (e) {
+        document.getElementById('lab-loading').style.display = 'none';
+        btn.disabled = false;
+        document.getElementById('lab-error').textContent = 'Error: ' + e.message;
+        document.getElementById('lab-error').style.display = 'block';
+      });
+  });
 
   // ---- Status (drives both the header dot and the dashboard module tag) ----
   function refreshStatus() {
