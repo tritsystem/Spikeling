@@ -122,6 +122,16 @@ SOURCE_STATUS = {
 
 mcp = FastMCP("spikeling-experiments")
 
+sys.path.insert(0, str(Path.home() / "OneDrive" / "Documents" / "mcp-gateway"))
+from wrap import make_gateway
+
+# Local-only audit log + rate limiting (self-contained, single-operator --
+# see mcp-gateway repo). This one server surfaces both real hardware tools
+# and the methodlm-integration spikemesh_* tools, so wiring it here covers
+# both "methodlm" and "Spikeling" from the ecosystem-wide gateway request.
+gated, _audit, _limiter = make_gateway(
+    "spikeling-experiments", str(EXPERIMENTS_DIR / "audit_log.jsonl"))
+
 _active = {}   # sandbox_id -> {"source": str, "adapter": obj, "created": float}
 
 
@@ -210,12 +220,14 @@ def _release(adapter):
 
 
 @mcp.tool()
+@gated('list_sources')
 def list_sources() -> dict:
     """List available sensor sources and their honest real/simulated hardware status."""
     return SOURCE_STATUS
 
 
 @mcp.tool()
+@gated('start_sandbox')
 def start_sandbox(source: str) -> dict:
     """Open a new isolated experiment session for `source` (acoustic,
     system_telemetry, video, emg, or environmental). Returns a sandbox_id
@@ -231,6 +243,7 @@ def start_sandbox(source: str) -> dict:
 
 
 @mcp.tool()
+@gated('calibrate')
 def calibrate(sandbox_id: str, n_samples: int = 20) -> dict:
     """Run a real calibration against the sandbox's live device: n_samples
     readings become this session's baseline for scoring/diagnosis."""
@@ -242,6 +255,7 @@ def calibrate(sandbox_id: str, n_samples: int = 20) -> dict:
 
 
 @mcp.tool()
+@gated('read')
 def read(sandbox_id: str) -> dict:
     """One real reading from the sandbox's device: current deviation score
     (raw and smoothed) plus the raw per-channel deviation vector."""
@@ -255,6 +269,7 @@ def read(sandbox_id: str) -> dict:
 
 
 @mcp.tool()
+@gated('diagnose')
 def diagnose(sandbox_id: str, top_n: int = 3) -> list:
     """Per-channel deviation attribution from the sandbox's device --
     which channel(s) are actually driving the current score."""
@@ -263,6 +278,7 @@ def diagnose(sandbox_id: str, top_n: int = 3) -> list:
 
 
 @mcp.tool()
+@gated('run_experiment')
 def run_experiment(sandbox_id: str, n_calibration: int = 20,
                     n_readings: int = 10, interval_s: float = 1.0) -> dict:
     """Parametric experiment: (re)calibrate, then take n_readings real
@@ -295,6 +311,7 @@ def run_experiment(sandbox_id: str, n_calibration: int = 20,
 
 
 @mcp.tool()
+@gated('capture_photo')
 def capture_photo(label: str) -> dict:
     """Real webcam capture (C922) of a salvaged electronics part, for
     Claude to Read and identify/research. Returns the saved photo path --
@@ -305,6 +322,7 @@ def capture_photo(label: str) -> dict:
 
 
 @mcp.tool()
+@gated('log_part_note')
 def log_part_note(title: str, photo_paths: list, body_markdown: str,
                    status: str = "identified", kind: str = "electronics-salvage") -> dict:
     """Writes a real vault note (vault/Project Work) for an identified/
@@ -319,6 +337,7 @@ def log_part_note(title: str, photo_paths: list, body_markdown: str,
 
 
 @mcp.tool()
+@gated('capture_dismantling_step')
 def capture_dismantling_step(session_label: str, step_num: int) -> dict:
     """Real webcam capture for one step of a dismantling/construction
     session -- named by session + step number so a multi-step session's
@@ -328,6 +347,7 @@ def capture_dismantling_step(session_label: str, step_num: int) -> dict:
 
 
 @mcp.tool()
+@gated('log_dismantling')
 def log_dismantling(title: str, steps: list, status: str = "in-progress",
                      kind: str = "electronics-dismantling") -> dict:
     """Writes ONE consolidated vault note for a whole dismantling/
@@ -341,6 +361,7 @@ def log_dismantling(title: str, steps: list, status: str = "in-progress",
 
 
 @mcp.tool()
+@gated('record_voice')
 def record_voice(duration_s: float = 5.0, device_index: int = -1) -> dict:
     """Records real audio from a mic (device_index=-1 uses the system
     default input) for voicebox_transcribe to process afterward. Deliberately
@@ -352,6 +373,7 @@ def record_voice(duration_s: float = 5.0, device_index: int = -1) -> dict:
 
 
 @mcp.tool()
+@gated('capture_wireless_photo')
 def capture_wireless_photo(esp32_cam_ip: str) -> dict:
     """UNTESTED -- fetches a real JPEG snapshot from a wireless ESP32S3
     Sense camera over WiFi. No ESP32S3 hardware exists yet to verify this
@@ -362,6 +384,7 @@ def capture_wireless_photo(esp32_cam_ip: str) -> dict:
 
 
 @mcp.tool()
+@gated('display_on_glasses')
 def display_on_glasses(esp32_display_ip: str, text: str) -> dict:
     """UNTESTED -- sends text to a wireless ESP32C3's OLED display over
     WiFi. No ESP32C3 hardware or matching firmware exists yet to verify
@@ -371,6 +394,7 @@ def display_on_glasses(esp32_display_ip: str, text: str) -> dict:
 
 
 @mcp.tool()
+@gated('connect_obd')
 def connect_obd(port: str = "") -> dict:
     """UNTESTED -- connects to a real ELM327 OBD-II adapter. port=""
     lets python-OBD auto-detect (USB/Bluetooth-as-COM-port adapters);
@@ -383,6 +407,7 @@ def connect_obd(port: str = "") -> dict:
 
 
 @mcp.tool()
+@gated('obd_dtc_codes')
 def obd_dtc_codes() -> list:
     """UNTESTED -- reads real check-engine/diagnostic trouble codes.
     Requires connect_obd() to have succeeded first; raises if not connected."""
@@ -390,6 +415,7 @@ def obd_dtc_codes() -> list:
 
 
 @mcp.tool()
+@gated('obd_live_data')
 def obd_live_data(pids: list = None) -> dict:
     """UNTESTED -- reads real live sensor values (pids: e.g. ["RPM",
     "COOLANT_TEMP", "SPEED"], defaults to a small common set). Requires
@@ -398,12 +424,14 @@ def obd_live_data(pids: list = None) -> dict:
 
 
 @mcp.tool()
+@gated('disconnect_obd')
 def disconnect_obd() -> dict:
     """Closes the real OBD-II connection, if one is open."""
     return _disconnect_obd()
 
 
 @mcp.tool()
+@gated('search_vault')
 def search_vault(query: str, limit: int = 10) -> list:
     """Real text search over vault/Project Work + vault/Research's actual
     notes (filename or content match) -- finds what's already been logged
@@ -413,6 +441,7 @@ def search_vault(query: str, limit: int = 10) -> list:
 
 
 @mcp.tool()
+@gated('read_project')
 def read_project(path: str, max_entries: int = 30) -> dict:
     """Real, read-only snapshot of an existing project directory: its
     README (if present) and top-level file/folder listing (not a full
@@ -422,6 +451,7 @@ def read_project(path: str, max_entries: int = 30) -> dict:
 
 
 @mcp.tool()
+@gated('import_data')
 def import_data(path: str) -> dict:
     """Real CSV/JSON import of a parts list, spec sheet, or any other
     structured data file someone already compiled elsewhere. Raises on
@@ -430,6 +460,7 @@ def import_data(path: str) -> dict:
 
 
 @mcp.tool()
+@gated('run_event_scan')
 def run_event_scan(duration_s: float = 30.0) -> dict:
     """Runs real event-triggered video scanning for duration_s seconds:
     calibrates on the current webcam view, then a real Spikeling network
@@ -442,6 +473,7 @@ def run_event_scan(duration_s: float = 30.0) -> dict:
 
 
 @mcp.tool()
+@gated('close_sandbox')
 def close_sandbox(sandbox_id: str) -> dict:
     """Release the sandbox's real device (mic stream / webcam) and drop it."""
     entry = _active.pop(sandbox_id, None)
@@ -462,6 +494,7 @@ SPIKEMESH_URL = "http://100.117.59.73:5055"
 
 
 @mcp.tool()
+@gated('spikemesh_ask')
 def spikemesh_ask(question: str) -> dict:
     """Ask SPIKEMESH's real mesh assistant a question. Answers are grounded
     in real semantic vault search + knowledge base, gated by a compiled
@@ -475,6 +508,7 @@ def spikemesh_ask(question: str) -> dict:
 
 
 @mcp.tool()
+@gated('spikemesh_investigate')
 def spikemesh_investigate(csv_path: str, target: str, question: str = "") -> dict:
     """Real MethodLM causal investigation via SPIKEMESH -- pre-registered
     tests (CORR/STRAT/RUN/ADJUST), collider/bias audit, Cinelli-Hazlett
@@ -486,6 +520,7 @@ def spikemesh_investigate(csv_path: str, target: str, question: str = "") -> dic
 
 
 @mcp.tool()
+@gated('spikemesh_project_registry')
 def spikemesh_project_registry() -> dict:
     """Real git hygiene across all 16 tracked local repos (uncommitted
     files, ahead/behind origin, staleness) -- live `git status`, not a log."""
@@ -495,6 +530,7 @@ def spikemesh_project_registry() -> dict:
 
 
 @mcp.tool()
+@gated('spikemesh_guard_status')
 def spikemesh_guard_status() -> dict:
     """Real server-guard data (disk/network/Defender/event-log/etc.) from
     its actual SQLite DB -- honestly reports whether it's live or stale."""
@@ -504,6 +540,7 @@ def spikemesh_guard_status() -> dict:
 
 
 @mcp.tool()
+@gated('spikemesh_generate_playbook')
 def spikemesh_generate_playbook(target_type: str, target_name: str, code_file: str = "") -> dict:
     """Generates a real, grounded (AI-written, not hand-verified) study
     page via SPIKEMESH -- target_type is 'project' (target_name = a
