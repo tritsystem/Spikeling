@@ -902,18 +902,19 @@
   }
   refreshGuardTag();
 
-  // ---- Root Cause: methodlm's own standalone GUI reachability (checked live, not assumed) ----
+  // ---- Root Cause: methodlm's own full console, ported directly into this
+  // same server (no second process to start/reach -- /methodlm-gui is
+  // always available exactly like every other route here) ----
   function checkMethodlmGui() {
     var el = document.getElementById('methodlm-gui-status');
     if (!el) return;
-    var url = 'http://' + window.location.hostname + ':8777/api/ping';
-    fetch(url, { cache: 'no-store', mode: 'cors' })
+    fetch('/api/ping', { cache: 'no-store' })
       .then(function (r) { if (!r.ok) throw new Error('not ok'); return r.json(); })
       .then(function () {
-        el.innerHTML = '<a href="http://' + window.location.hostname + ':8777" target="_blank" rel="noopener" style="color:var(--accent);">Open MethodLM console &rarr;</a>';
+        el.innerHTML = '<a href="/methodlm-gui" target="_blank" rel="noopener" style="color:var(--accent);">Open MethodLM console &rarr;</a>';
       })
       .catch(function () {
-        el.textContent = 'Not running right now. On the server: cd methodlm && python methodlm_gui.py (opens on :8777).';
+        el.textContent = 'MethodLM console unavailable on this server right now.';
       });
   }
 

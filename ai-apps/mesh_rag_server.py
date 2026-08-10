@@ -55,13 +55,23 @@ try:
 except ImportError:
     search_vault_notes = None
 
-sys.path.insert(0, r"C:\Users\gbran\llama_demo")
+METHODLM_DIR = r"C:\Users\gbran\llama_demo"
+sys.path.insert(0, METHODLM_DIR)
 try:
     from methodlm import load_csv as methodlm_load_csv, investigate as methodlm_investigate
+    import methodlm as _methodlm_module
 except ImportError as e:
     methodlm_load_csv = None
     methodlm_investigate = None
+    _methodlm_module = None
     print(f"[warn] MethodLM not available: {e}")
+
+try:
+    from methodlm_io import validate as methodlm_validate, load_any as methodlm_load_any, \
+        featurize as methodlm_featurize, format_report as methodlm_format_report
+except ImportError as e:
+    methodlm_validate = methodlm_load_any = methodlm_featurize = methodlm_format_report = None
+    print(f"[warn] methodlm_io not available: {e}")
 
 # ---- Real Spikeling LIF confidence gate -- decides whether retrieval was
 # actually strong enough to answer from, instead of always generating. ----
@@ -404,6 +414,89 @@ def investigate_route():
         return jsonify({"error": f"investigation failed: {e}"}), 500
 
     return jsonify(result)
+
+
+# ---- MethodLM's own console, ported in directly (no second process --
+# starting a new background service on this machine has been a hard,
+# repeatedly-confirmed gate; this reuses the SAME already-running Flask
+# server instead, since restarting it has worked cleanly every other time
+# this session). Real logic ported from methodlm_gui.py's do_GET/do_POST,
+# not a reduced reimplementation -- same /api/ping, /api/describe,
+# /api/run, /api/race behavior, same methodlm_io.validate/load_any/
+# featurize/format_report + methodlm.investigate/vanilla_answer calls. ----
+METHODLM_GUI_HTML = os.path.join(METHODLM_DIR, "methodlm_gui.html")
+
+
+@app.route("/methodlm-gui", methods=["GET"])
+def methodlm_gui():
+    if not os.path.isfile(METHODLM_GUI_HTML):
+        return jsonify({"error": f"methodlm_gui.html not found at {METHODLM_GUI_HTML}"}), 500
+    with open(METHODLM_GUI_HTML, encoding="utf-8") as f:
+        body = f.read()
+    skeleton = ("<!doctype html><html lang='en'><head><meta charset='utf-8'>"
+                "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+                "<style>html,body{margin:0;background:#0a0603}</style></head><body>"
+                + body + "</body></html>")
+    return skeleton, 200, {"Content-Type": "text/html; charset=utf-8"}
+
+
+@app.route("/api/ping", methods=["GET"])
+def methodlm_api_ping():
+    return jsonify({"ok": True})
+
+
+@app.route("/api/describe", methods=["POST"])
+def methodlm_api_describe():
+    if methodlm_validate is None:
+        return jsonify({"error": "methodlm_io not available on this server"}), 503
+    data = request.get_json(force=True, silent=True) or {}
+    r = methodlm_validate(data.get("path", ""), data.get("target"),
+                           table=data.get("table"), query=data.get("query"))
+    return jsonify(r)
+
+
+def _methodlm_gui_run(data, race=False):
+    path, target = data.get("path", ""), data.get("target", "")
+    raw, notes = methodlm_load_any(path, table=data.get("table"), query=data.get("query"))
+    tbl, rep = methodlm_featurize(raw, target)
+    report = methodlm_format_report(notes, rep, target)
+    cols = [c for c in tbl if c != target]
+    q = (f"Investigate what actually drives {target} in this dataset "
+         f"(columns: {', '.join(cols[:12])}). Do not trust raw correlations.")
+    name = os.path.splitext(os.path.basename(path))[0]
+    res = methodlm_investigate(name, tbl, target, q, False, ingest_report=report)
+    ledger_path = os.path.join(METHODLM_DIR, f"ledger_{name}.txt")
+    ledger_text = ""
+    if os.path.isfile(ledger_path):
+        with open(ledger_path, encoding="utf-8") as f:
+            ledger_text = f.read()
+    out = {"ledger": ledger_text, "verdict": res["verdict"],
+           "tested": res["nrun"], "prereg": res["pre"], "gate": res["gate"]}
+    if race:
+        out["vanilla"] = _methodlm_module.vanilla_answer(q)
+    return out
+
+
+@app.route("/api/run", methods=["POST"])
+def methodlm_api_run():
+    if methodlm_load_any is None or methodlm_investigate is None:
+        return jsonify({"error": "MethodLM not fully available on this server"}), 503
+    data = request.get_json(force=True, silent=True) or {}
+    try:
+        return jsonify(_methodlm_gui_run(data, race=False))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/race", methods=["POST"])
+def methodlm_api_race():
+    if methodlm_load_any is None or methodlm_investigate is None:
+        return jsonify({"error": "MethodLM not fully available on this server"}), 503
+    data = request.get_json(force=True, silent=True) or {}
+    try:
+        return jsonify(_methodlm_gui_run(data, race=True))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/", methods=["GET"])
