@@ -598,6 +598,24 @@ def tasks_route():
     })
 
 
+@app.route("/engine/run", methods=["GET"])
+def engine_run_route():
+    """Real jet-engine-staged spiking pipeline (jet_engine_spike_pipeline.spk):
+    compressor(converging)->combustion(nonlinear amplification)->turbine
+    (feeds back to drive the compressor, same as a real turbojet's shaft)
+    ->exhaust. Optimized the same measured way as the confidence gate above
+    -- AST compiled once at import (not per request), accelerated
+    (bit-exact) runtime -- see jet_engine_gate.py."""
+    try:
+        import jet_engine_gate
+        n_ticks = int(request.args.get("ticks", 20))
+        drive = float(request.args.get("drive", 80.0))
+        result = jet_engine_gate.run_pipeline(n_ticks=n_ticks, intake_drive=drive)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok", "kb_sources": kb.sources() if hasattr(kb, "sources") else None})
