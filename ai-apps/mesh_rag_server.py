@@ -68,6 +68,19 @@ except ImportError as e:
 SPIKELING_ROOT = r"C:\Users\gbran\OneDrive\Documents\Spikeling"
 sys.path.insert(0, os.path.join(SPIKELING_ROOT, "core"))
 CONFIDENCE_DRIVE_SCALE = 20.0  # calibrated on real observed vault scores, see retrieval_confidence.spk
+
+# OPT-IN accelerated backend (silicon-mega-accelerator, github.com/tritsystem/
+# silicon-mega-accelerator). Default OFF -- existing behavior is completely
+# unchanged unless SPIKEMESH_ACCELERATED_GATE is explicitly set. Uses
+# IndexedTernaryRuntime in quantization="none" mode specifically -- the ONLY
+# mode verified bit-exact against the original SpikelingRuntime (Milestone 1
+# correctness test + Milestone 6's real test against this exact .spk file,
+# both real calibration points: relevant score 6.3, irrelevant score 2.5,
+# both matched exactly). Quantized modes are NOT wired in here -- they have
+# a real, measured, disclosed accuracy cost that has no business silently
+# affecting a live production gate.
+_USE_ACCELERATED_GATE = os.environ.get("SPIKEMESH_ACCELERATED_GATE", "").lower() in ("1", "true", "yes")
+
 try:
     from compiler.compiler import compile_file
     from runtime.runtime import SpikelingRuntime
@@ -76,8 +89,24 @@ try:
     _CONF_SPK = os.path.join(os.path.dirname(os.path.abspath(__file__)), "retrieval_confidence.spk")
     _conf_ast = compile_file(_CONF_SPK, output_dir=_tempfile.mkdtemp(prefix="spikemesh_conf_"))
 
+    _GateRuntime = SpikelingRuntime
+    if _USE_ACCELERATED_GATE:
+        try:
+            sys.path.insert(0, r"C:\Users\gbran\OneDrive\Documents\silicon-mega-accelerator")
+            from indexed_ternary_runtime import IndexedTernaryRuntime
+
+            def _GateRuntime(ast):
+                return IndexedTernaryRuntime(ast, quantization="none")
+            print("[spikemesh] confidence gate: ACCELERATED backend (indexed connectivity, "
+                  "behavior-preserving, quantization=none)")
+        except Exception as e:
+            print(f"[warn] accelerated gate requested but unavailable ({e}) -- falling back to original")
+            _GateRuntime = SpikelingRuntime
+    else:
+        print("[spikemesh] confidence gate: original backend (set SPIKEMESH_ACCELERATED_GATE=1 to opt in)")
+
     def retrieval_is_confident(best_score):
-        runtime = SpikelingRuntime(_conf_ast)
+        runtime = _GateRuntime(_conf_ast)
         neuron = runtime.neurons["confidence"]
         # stimulate() already injects the drive AND runs one real LIF tick
         # (checked directly against runtime.py -- no separate tick() call needed).
