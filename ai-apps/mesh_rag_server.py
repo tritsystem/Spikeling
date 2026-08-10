@@ -634,6 +634,50 @@ def guard_sustained_check_route():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/model/lab", methods=["POST"])
+def model_lab_route():
+    """SpikeMesh model-onboarding lab: drop in a local HF model_id and run
+    real operations from spikemesh_model_lab.py (llama_demo/):
+      vet       -- score the model's causal-reasoning discipline against
+                   the real 9-trap rubric from tonight's stress test.
+      finetune  -- bake the real corpus (hypothetical + real-telemetry-
+                   derived examples) into the model's weights, re-vet to
+                   confirm it actually moved the score.
+    quantize is DISABLED here (2026-08-09): measured, not assumed --
+    tritkit ternarize()+set_quant() completely destroyed a real fine-tuned
+    model's causal-reasoning discipline (5/6 -> 0/6), replicating the
+    earlier MobileNetV3 ternary-quantization failure (78.8%->4.9%
+    accuracy) on a new architecture/task. The function still exists in
+    spikemesh_model_lab.py as a documented negative result -- just not
+    served live so it can't silently wreck a model someone drops in.
+    Synchronous and slow (minutes for finetune) -- this is a real local
+    research tool, not a scaled service; call it knowing that."""
+    try:
+        sys.path.insert(0, r"C:\Users\gbran\llama_demo")
+        import spikemesh_model_lab as lab
+        body = request.get_json(force=True) or {}
+        op = body.get("op", "vet")
+        model_id = body.get("model_id", lab.DEFAULT_MODEL)
+        if op == "vet":
+            model, tok = lab.load_model(model_id)
+            result = lab.vet(model, tok)
+        elif op == "quantize":
+            return jsonify({
+                "error": "quantize is disabled -- measured to completely destroy a fine-tuned "
+                         "model's causal-reasoning discipline (5/6 -> 0/6), same failure mode as "
+                         "the earlier MobileNetV3 ternary-quantization result. See "
+                         "spikemesh_model_lab.quantize() for the documented negative finding."
+            }), 403
+        elif op == "finetune":
+            result = lab.finetune(model_id, corpus_path=body.get("corpus_path"),
+                                   epochs=int(body.get("epochs", 8)))
+        else:
+            return jsonify({"error": f"unknown op '{op}', expected vet|quantize|finetune"}), 400
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok", "kb_sources": kb.sources() if hasattr(kb, "sources") else None})

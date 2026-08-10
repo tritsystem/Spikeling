@@ -35,22 +35,22 @@ neuron turbine2 threshold=90 leak=6
 # Exhaust: final output
 neuron exhaust threshold=70 leak=4
 
-connect intake1 -> comp_stage2a weight=0.4903
-connect intake2 -> comp_stage2a weight=0.4903
-connect intake3 -> comp_stage2b weight=0.4903
-connect intake4 -> comp_stage2b weight=0.4903
+connect intake1 -> comp_stage2a weight=0.6
+connect intake2 -> comp_stage2a weight=0.6
+connect intake3 -> comp_stage2b weight=0.6
+connect intake4 -> comp_stage2b weight=0.6
 
-connect comp_stage2a -> comp_stage3 weight=0.6158
-connect comp_stage2b -> comp_stage3 weight=0.6158
+connect comp_stage2a -> comp_stage3 weight=0.7
+connect comp_stage2b -> comp_stage3 weight=0.7
 
-connect comp_stage3 -> combustion weight=0.8754
+connect comp_stage3 -> combustion weight=0.9
 
-connect combustion -> turbine1 weight=1.0000
-connect combustion -> turbine2 weight=1.0000
-connect combustion -> exhaust weight=0.4900
+connect combustion -> turbine1 weight=2.0
+connect combustion -> turbine2 weight=2.0
+connect combustion -> exhaust weight=0.5
 
-connect turbine1 -> turbine2 weight=0.4027
-connect turbine2 -> exhaust weight=0.5900
+connect turbine1 -> turbine2 weight=0.4
+connect turbine2 -> exhaust weight=0.6
 
 # THE REAL MECHANICAL DETAIL: turbine drives compressor via a shaft.
 # Real jet engines: without this feedback, the compressor has no power
@@ -59,7 +59,7 @@ connect turbine2 -> exhaust weight=0.5900
 # zero measurable difference to compressor/exhaust fire counts across
 # three drive levels); weight>=1.0 is the real point where it becomes
 # load-bearing (see test_jet_engine_pipeline.py's feedback-weight sweep).
-connect turbine1 -> comp_stage2a weight=0.9900
-connect turbine2 -> comp_stage2b weight=0.9900
+connect turbine1 -> comp_stage2a weight=2.0
+connect turbine2 -> comp_stage2b weight=2.0
 
 refractory=0ms
