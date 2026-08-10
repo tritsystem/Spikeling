@@ -1,0 +1,65 @@
+# Jet-engine-staged spiking pipeline: intake -> compressor (multi-stage,
+# converging) -> combustion (nonlinear amplification) -> turbine (multi-
+# stage) -> exhaust, WITH the one structural detail that makes this a real
+# mechanical analog rather than just naming: a real turbojet's turbine
+# doesn't just sit at the output end -- it mechanically drives the
+# compressor via a shaft. That's modeled here as a real feedback synapse
+# from each turbine stage back to its corresponding compressor stage, not
+# a straight-through pipeline. Whether that feedback actually does
+# anything measurable is tested empirically in
+# test_jet_engine_pipeline.py, not assumed from the wiring alone.
+
+# Intake: 4 parallel inputs, low threshold -- air entering freely
+neuron intake1 threshold=80 leak=5
+neuron intake2 threshold=80 leak=5
+neuron intake3 threshold=80 leak=5
+neuron intake4 threshold=80 leak=5
+
+# Compressor stage 2: converges 4 inputs into 2 -- fewer neurons, higher
+# threshold (real compressors: fewer, more energetic stages downstream)
+neuron comp_stage2a threshold=100 leak=8
+neuron comp_stage2b threshold=100 leak=8
+
+# Compressor stage 3: converges further into 1 -- peak "pressure" before combustion
+neuron comp_stage3 threshold=120 leak=10
+
+# Combustion: deliberately LOW threshold relative to what comp_stage3 can
+# deliver -- real combustion is a large, nonlinear energy release relative
+# to what enters, not a proportional pass-through
+neuron combustion threshold=60 leak=3
+
+# Turbine stages: extract energy from the combustion burst
+neuron turbine1 threshold=90 leak=6
+neuron turbine2 threshold=90 leak=6
+
+# Exhaust: final output
+neuron exhaust threshold=70 leak=4
+
+connect intake1 -> comp_stage2a weight=0.6
+connect intake2 -> comp_stage2a weight=0.6
+connect intake3 -> comp_stage2b weight=0.6
+connect intake4 -> comp_stage2b weight=0.6
+
+connect comp_stage2a -> comp_stage3 weight=0.7
+connect comp_stage2b -> comp_stage3 weight=0.7
+
+connect comp_stage3 -> combustion weight=0.9
+
+connect combustion -> turbine1 weight=2.0
+connect combustion -> turbine2 weight=2.0
+connect combustion -> exhaust weight=0.5
+
+connect turbine1 -> turbine2 weight=0.4
+connect turbine2 -> exhaust weight=0.6
+
+# THE REAL MECHANICAL DETAIL: turbine drives compressor via a shaft.
+# Real jet engines: without this feedback, the compressor has no power
+# source and the engine can't sustain itself. Weight tuned empirically,
+# not guessed: 0.3 tested as real but NOT load-bearing (removing it made
+# zero measurable difference to compressor/exhaust fire counts across
+# three drive levels); weight>=1.0 is the real point where it becomes
+# load-bearing (see test_jet_engine_pipeline.py's feedback-weight sweep).
+connect turbine1 -> comp_stage2a weight=2.0
+connect turbine2 -> comp_stage2b weight=2.0
+
+refractory=0ms
