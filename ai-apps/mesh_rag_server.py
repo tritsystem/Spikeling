@@ -55,8 +55,21 @@ try:
 except ImportError:
     search_vault_notes = None
 
-METHODLM_DIR = r"C:\Users\gbran\llama_demo"
+METHODLM_DIR = r"C:\Users\gbran\OneDrive\Documents\methodlm"
 sys.path.insert(0, METHODLM_DIR)
+# Real canonical repo, not the older C:\Users\gbran\llama_demo copy this used to point at --
+# confirmed diverged in BOTH directions (llama_demo had a real tool-syntax-hint system and a
+# proactive "all candidates tested" nudge canonical lacked; canonical has REFUTE, a DoWhy-backed
+# second causal-robustness check, which llama_demo's copy never got). Both real improvements were
+# merged into canonical (methodlm@344e5cb) before repointing here, so nothing regresses.
+os.environ.setdefault("METHODLM_OBSERVE_PATH", r"G:\dev\observe-api")
+os.environ.setdefault("METHODLM_VAULT_INDEX",
+                       os.path.join(os.path.dirname(os.path.abspath(__file__)), "vault_semantic_index"))
+# The real llama-completion.exe + GGUF files (multi-GB) only exist in llama_demo, never
+# duplicated into the canonical methodlm repo -- point methodlm_models.py's local backend there
+# instead of copying multi-GB binaries. Found via a real 500 ("[WinError 2] file not found")
+# on the first /api/run attempt after repointing METHODLM_DIR, not assumed in advance.
+os.environ.setdefault("METHODLM_LOCAL_BIN_DIR", r"C:\Users\gbran\llama_demo")
 try:
     from methodlm import load_csv as methodlm_load_csv, investigate as methodlm_investigate
     import methodlm as _methodlm_module
