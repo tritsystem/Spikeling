@@ -91,6 +91,18 @@ class Synapse:
     src:    str
     dst:    str
     weight: float
+    # Real per-synapse transmission delay, fused in from a direct
+    # code-level comparison against Sandia National Labs' Fugu
+    # framework (see Documents/neuromorphic-survey/fugu_vs_spikeling.md):
+    # Fugu treats delay as core infrastructure (needed for coincidence
+    # detection, temporal pattern recognition, phase-coded computation);
+    # this runtime had NO delay primitive at all before this -- every
+    # synapse delivered instantly within the firing neuron's own
+    # _fire() call. Defaults to 0.0 (instant, delivered synchronously
+    # inside _fire() exactly as before) so every existing .spk file and
+    # pyspike script is 100% unaffected -- delay is opt-in, not a
+    # behavior change to the default path.
+    delay_ms: float = 0.0
 
 
 @dataclass
@@ -251,6 +263,15 @@ class SpikelingRuntime:
         self.learner: Optional[STDPLearner]  = None
         self.handlers: dict[str, Callable]   = {}
         self._spike_log: list[tuple]         = []   # (time, neuron_name)
+        # Real delayed-delivery queue: (delivery_time_ms, synapse, source_fire_time).
+        # Only ever populated by synapses with delay_ms > 0 -- see
+        # _fire()'s propagation loop and _flush_pending_deliveries()
+        # below. A plain list, not a heap: real networks built with
+        # this runtime (kernel schedulers, sensor grids) run at a scale
+        # where a handful of pending deliveries at once is the norm,
+        # not thousands -- linear scan is simpler to read/debug and
+        # its cost is negligible at that scale.
+        self._pending_deliveries: list[tuple[float, Synapse, float]] = []
 
         # Build neuron states -- LIF/Izhikevich/AdEx go in self.neurons,
         # Resonator neurons go in self.resonators (different dynamics:
@@ -276,7 +297,8 @@ class SpikelingRuntime:
 
         # Build synapses
         for c in ast.connections:
-            self.synapses.append(Synapse(src=c.src, dst=c.dst, weight=c.weight))
+            self.synapses.append(Synapse(src=c.src, dst=c.dst, weight=c.weight,
+                                          delay_ms=getattr(c, "delay_ms", 0.0)))
 
         # Build action map
         for a in ast.actions:
@@ -301,6 +323,13 @@ class SpikelingRuntime:
         """
         if neuron_name not in self.neurons:
             raise ValueError(f"Unknown neuron: '{neuron_name}'")
+
+        # Real delayed synapses scheduled by a PAST _fire() call may have
+        # come due by now -- deliver them before processing this call's
+        # own drive, so a delayed spike that arrives exactly this tick
+        # still contributes to the SAME threshold check below (needed
+        # for delay-based coincidence detection to actually coincide).
+        self._flush_pending_deliveries(current_time_ms)
 
         n       = self.neurons[neuron_name]
         elapsed = current_time_ms - n.last_spike_time
@@ -327,8 +356,12 @@ class SpikelingRuntime:
     def tick(self, current_time_ms: float):
         """
         Advance all neurons one timestep without external drive.
-        Applies leak decay to every neuron.
+        Applies leak decay to every neuron, and delivers any real
+        delayed-synapse spikes that have come due by this time (see
+        _flush_pending_deliveries()) -- a delayed spike doesn't need an
+        external stimulate() call to arrive on schedule.
         """
+        self._flush_pending_deliveries(current_time_ms)
         for n in self.neurons.values():
             n.membrane_potential = _leak_toward_zero(n.membrane_potential, n.leak)
 
@@ -377,31 +410,97 @@ class SpikelingRuntime:
         if _depth < 32:
             for syn in self.synapses:
                 if syn.src == n.name:
-                    downstream = self.neurons[syn.dst]
-                    elapsed    = t - downstream.last_spike_time
-                    if elapsed < self.refractory_ms:
-                        continue  # downstream is refractory-locked
-
-                    # INHIBITION: a negative weight subtracts. We let the target
-                    # go NEGATIVE (hyperpolarize) -- that's what gives inhibition
-                    # real VETO power: a deficit that later excitation has to climb
-                    # back out of before it can fire, not just a cancel of charge
-                    # already there. Bounded at -threshold so one inhibitory spike
-                    # can't create an unrecoverable well; leak walks it back to 0.
-                    downstream.membrane_potential = max(
-                        -downstream.threshold,
-                        downstream.membrane_potential + syn.weight * 50.0)
-
-                    # STDP: update weight based on spike timing
-                    if self.learner:
-                        dt         = t - downstream.last_spike_time
-                        syn.weight = self.learner.update(syn, dt)
-
-                    # Cascade: downstream crossed its own threshold
-                    if downstream.membrane_potential >= downstream.threshold:
-                        self._fire(downstream, t, _depth + 1)
+                    if syn.delay_ms > 0.0:
+                        # Real delayed delivery, fused in from Fugu's own
+                        # first-class synaptic delay model (see the
+                        # Synapse dataclass's own doc comment) -- schedule
+                        # for later instead of applying now. Recorded
+                        # against the SYNAPSE OBJECT itself (not a copied
+                        # weight) so a live STDP update between now and
+                        # delivery is still reflected when it lands, and
+                        # so the eventual STDP dt calculation below has
+                        # the real source fire time to work from.
+                        self._pending_deliveries_list().append((t + syn.delay_ms, syn, t))
+                        continue
+                    self._deliver_spike(syn, downstream_fire_time=t, source_fire_time=t, _depth=_depth)
 
         return command
+
+    def _deliver_spike(self, syn: "Synapse", downstream_fire_time: float,
+                        source_fire_time: float, _depth: int = 0) -> None:
+        """The real per-synapse delivery mechanics -- shared by _fire()'s
+        instant (delay_ms == 0) path and _flush_pending_deliveries()'s
+        delayed path, so both behave identically rather than maintaining
+        two copies of this logic. `downstream_fire_time` is the real
+        clock time delivery happens (== source_fire_time for an instant
+        synapse, == source_fire_time + delay_ms for a delayed one) --
+        this is the time downstream's own last_spike_time/refractory
+        checks and any resulting cascade fire are stamped with, matching
+        the real event-driven semantics this runtime uses throughout."""
+        downstream = self.neurons[syn.dst]
+        elapsed    = downstream_fire_time - downstream.last_spike_time
+        if elapsed < self.refractory_ms:
+            return  # downstream is refractory-locked
+
+        # INHIBITION: a negative weight subtracts. We let the target
+        # go NEGATIVE (hyperpolarize) -- that's what gives inhibition
+        # real VETO power: a deficit that later excitation has to climb
+        # back out of before it can fire, not just a cancel of charge
+        # already there. Bounded at -threshold so one inhibitory spike
+        # can't create an unrecoverable well; leak walks it back to 0.
+        downstream.membrane_potential = max(
+            -downstream.threshold,
+            downstream.membrane_potential + syn.weight * 50.0)
+
+        # STDP: update weight based on spike timing (measured from the
+        # real source fire time, not the delivery time -- STDP is about
+        # when the PRE-synaptic spike happened relative to POST, and
+        # delay is a real transmission property of the synapse, not
+        # something that should be invisible to the plasticity rule).
+        if self.learner:
+            dt         = source_fire_time - downstream.last_spike_time
+            syn.weight = self.learner.update(syn, dt)
+
+        # Cascade: downstream crossed its own threshold
+        if downstream.membrane_potential >= downstream.threshold:
+            self._fire(downstream, downstream_fire_time, _depth + 1)
+
+    def _pending_deliveries_list(self) -> list:
+        """Lazily-initializing accessor for self._pending_deliveries.
+
+        REAL BUG FOUND AND FIXED HERE, TWICE, not hypothetical: at least
+        two real places in this codebase construct a SpikelingRuntime via
+        `SpikelingRuntime.__new__(SpikelingRuntime)` and set attributes by
+        hand instead of calling __init__() -- pyspike.py's build_live()
+        (fixed directly there) and test_pyspike_incremental_parity.py's
+        own old-vs-new scheduling comparison harness (found by actually
+        running that test, not by code review alone -- it failed with a
+        real AttributeError on the first run after this feature was
+        added). Rather than chase every such manual-construction site
+        individually (there may be others not yet found), this accessor
+        makes the pending-delivery queue self-healing: any runtime
+        instance that never went through __init__ gets the attribute
+        created on first real use instead of crashing."""
+        if not hasattr(self, "_pending_deliveries"):
+            self._pending_deliveries = []
+        return self._pending_deliveries
+
+    def _flush_pending_deliveries(self, current_time_ms: float) -> None:
+        """Delivers every real scheduled delayed-synapse spike whose
+        delivery time has arrived, via the SAME _deliver_spike() path
+        _fire()'s own instant deliveries use. Called from both
+        stimulate() and tick() so a delayed spike arrives on schedule
+        regardless of which one drives the runtime forward."""
+        pending = self._pending_deliveries_list()
+        if not pending:
+            return
+        due = [d for d in pending if d[0] <= current_time_ms]
+        if not due:
+            return
+        self._pending_deliveries = [d for d in pending if d[0] > current_time_ms]
+        due.sort(key=lambda d: d[0])  # real chronological delivery order
+        for delivery_time, syn, source_fire_time in due:
+            self._deliver_spike(syn, downstream_fire_time=delivery_time, source_fire_time=source_fire_time)
 
     # ── Diagnostics ─────────────────────────────
 

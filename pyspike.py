@@ -64,18 +64,26 @@ class NeuronRef:
         self.net = net
         self.name = name
 
-    def to(self, dst: "NeuronRef", weight: float = 1.0) -> "NeuronRef":
+    def to(self, dst: "NeuronRef", weight: float = 1.0, delay_ms: float = 0.0) -> "NeuronRef":
         """Explicit weighted connect -- the one you reach for when weight
         isn't the default 1.0 (inhibitory synapses, graded severities,
-        anything computed rather than constant)."""
-        self.net.connect(self, dst, weight=weight)
+        anything computed rather than constant).
+
+        delay_ms: real per-synapse transmission delay, fused in from a
+        direct comparison against Sandia's Fugu framework (see
+        Documents/neuromorphic-survey/fugu_vs_spikeling.md) -- this
+        runtime had no delay primitive before. Defaults to 0.0 (instant,
+        exactly the pre-existing behavior); set it to build delay-based
+        circuits like coincidence detectors (see brick helpers in
+        pyspike_bricks.py)."""
+        self.net.connect(self, dst, weight=weight, delay_ms=delay_ms)
         return dst
 
-    def inhibits(self, dst: "NeuronRef", weight: float = -2.0) -> "NeuronRef":
+    def inhibits(self, dst: "NeuronRef", weight: float = -2.0, delay_ms: float = 0.0) -> "NeuronRef":
         """Same as .to() but the negative default and the name make
         inhibitory wiring self-documenting at the call site."""
         assert weight < 0, "inhibits() expects a negative weight -- use .to() for excitatory"
-        return self.to(dst, weight=weight)
+        return self.to(dst, weight=weight, delay_ms=delay_ms)
 
     def __rshift__(self, dst: "NeuronRef") -> "NeuronRef":
         """`a >> b` is sugar for the common case: excitatory, weight=1.0.
@@ -116,12 +124,14 @@ class Net:
                 name=name, threshold=float(threshold), leak=float(leak))
         return NeuronRef(self, name)
 
-    def connect(self, src, dst, weight: float = 1.0) -> None:
+    def connect(self, src, dst, weight: float = 1.0, delay_ms: float = 0.0) -> None:
         src_name = src.name if isinstance(src, NeuronRef) else src
         dst_name = dst.name if isinstance(dst, NeuronRef) else dst
-        self.ast.connections.append(ConnectionDef(src=src_name, dst=dst_name, weight=float(weight)))
+        self.ast.connections.append(ConnectionDef(
+            src=src_name, dst=dst_name, weight=float(weight), delay_ms=float(delay_ms)))
         if self._live_rt is not None:
-            self._live_rt.synapses.append(Synapse(src=src_name, dst=dst_name, weight=float(weight)))
+            self._live_rt.synapses.append(Synapse(
+                src=src_name, dst=dst_name, weight=float(weight), delay_ms=float(delay_ms)))
 
     def action(self, neuron: NeuronRef):
         """Decorator: attach a real Python function directly to a neuron's
@@ -188,6 +198,13 @@ class Net:
         self._live_rt.learner = None
         self._live_rt.handlers = dict(self._handlers)
         self._live_rt._spike_log = []
+        # Real bug caught by this project's own delay-feature regression
+        # test: build_live() constructs the runtime via __new__(), never
+        # calling __init__(), so any attribute __init__() sets (like the
+        # real synaptic-delay pending-delivery queue added alongside
+        # this) has to be set here too, by hand, or live-mode runtimes
+        # crash the instant delay code touches it.
+        self._live_rt._pending_deliveries = []
         return self._live_rt
 
     def reconcile_late_edge(self, src: NeuronRef, dst: NeuronRef, weight: float) -> None:

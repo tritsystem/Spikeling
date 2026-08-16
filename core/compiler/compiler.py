@@ -47,6 +47,7 @@ class ConnectionDef:
     src: str
     dst: str
     weight: float
+    delay_ms: float = 0.0  # see runtime.py's Synapse.delay_ms -- default 0.0 == instant, unchanged behavior
 
 
 @dataclass
