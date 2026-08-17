@@ -25,19 +25,24 @@ paired, not independent.
 Built on top of that: sequence_detector() (order-sensitive, not just
 coincident -- the actual "temporal pattern recognition" delay lines are
 for), and a real spiking logic family (and_gate/or_gate/xor_gate/
-half_adder) closing the OTHER real gap the Fugu comparison named --
-"building GENERAL COMPUTATION out of spiking primitives" (adder_bricks.py
-etc), which this runtime had nothing for before. xor_gate's own docstring
-records a real bug found and fixed while building it (a naive OR-excites/
-AND-inhibits design double-fires on both-inputs-active; fixed via a
-refractory-based dedup), not just the working end state.
+half_adder/full_adder) closing the OTHER real gap the Fugu comparison
+named -- "building GENERAL COMPUTATION out of spiking primitives"
+(adder_bricks.py etc), which this runtime had nothing for before.
+xor_gate's own docstring records a real bug found and fixed while
+building it (a naive OR-excites/AND-inhibits design double-fires on
+both-inputs-active; fixed via a refractory-based dedup), not just the
+working end state. full_adder's own docstring records the real timing
+subtlety of CHAINING two delay-based bricks: composition isn't
+plug-and-play the way synchronous digital logic is -- a downstream
+stage's inputs have to be aligned to the upstream stage's own real
+propagation latency, not just wired.
 
     python pyspike_bricks.py    # self-test: proves every brick's documented
                                  # behavior for real -- delay-compensated
                                  # coincidence + its negative control, order
                                  # sensitivity, and full truth tables for
-                                 # every logic gate including the 1-bit
-                                 # half-adder, not just "it compiles."
+                                 # every logic gate including the 3-input
+                                 # full adder, not just "it compiles."
 """
 from pyspike import Net, NeuronRef
 
@@ -210,15 +215,51 @@ def half_adder(net: Net, a: NeuronRef, b: NeuronRef, sum_name: str,
     differentiator (adder_bricks.py: "building GENERAL COMPUTATION out of
     spiking primitives, not just ML inference") and flagged as "worth a
     real follow-up if there's interest" -- this closes that follow-up for
-    the 1-bit half-adder case. A full adder (3-input, with carry-in) is a
-    real, honest scope-cut, not attempted here: it needs a majority-of-3
-    circuit for COUT that this file doesn't have a verified brick for yet.
+    the 1-bit half-adder case (see full_adder() below for the 3-input,
+    carry-in case, built from two of these chained together).
 
     Requires the same Net(refractory_ms > 0) as xor_gate() -- see its
     docstring."""
     s = xor_gate(net, a, b, sum_name)
     c = and_gate(net, a, b, carry_name)
     return s, c
+
+
+def full_adder(net: Net, a: NeuronRef, b: NeuronRef, cin: NeuronRef,
+               sum_name: str, carry_name: str) -> tuple:
+    """Real 3-input full adder, built the same way real hardware full-adders
+    are: two chained half_adder() stages --
+        s1, c1 = half_adder(a, b)          # SUM = XOR(a,b), CARRY = AND(a,b)
+        SUM, c2 = half_adder(s1, cin)      # SUM = XOR(s1,cin), c2 = AND(s1,cin)
+        COUT = OR(c1, c2)
+    closing the "honest scope-cut" half_adder()'s own docstring named
+    (no majority-of-3 needed -- the two-half-adder construction sidesteps
+    it entirely, same as real digital logic).
+
+    THE REAL COMPOSITION SUBTLETY, found by tracing timing before writing
+    any driving code, not discovered by trial and error: stage 1's SUM
+    output (s1) is itself an xor_gate() -- it does NOT fire instantly. Per
+    xor_gate's own docstring, its output (if it fires at all) fires
+    `gap_ms` after a/b's real arrival time (the OR-helper's delayed
+    delivery is what actually crosses XOR's threshold). Unlike synchronous
+    digital logic, wiring two stages together does NOT mean "it settles on
+    its own" -- stage 2 needs `cin` DELIVERED to it at s1's own earliest
+    possible fire time (a/b's arrival time + xor_gate's gap_ms, 20.0 by
+    default), or s1 and cin won't land close enough together for stage 2's
+    AND/XOR helpers to combine them correctly.
+
+    This function wires the wants once; it does NOT drive/time the inputs
+    for you (a, b, cin are caller-supplied NeuronRefs). The CALLER is
+    responsible for stimulating `cin` at (a/b's stimulation time + 20.0ms)
+    -- see this file's own self-test for the real, executed choreography.
+    This is a disclosed, real property of composing delay-based bricks,
+    not an oversight: every brick has its own real propagation latency,
+    and anything downstream has to be aligned to it, same as a real
+    physical circuit constrains when you can safely sample its output."""
+    s1, c1 = half_adder(net, a, b, f"{sum_name}_stage1_sum", f"{sum_name}_stage1_carry")
+    s2, c2 = half_adder(net, s1, cin, sum_name, f"{sum_name}_stage2_carry")
+    cout = or_gate(net, c1, c2, carry_name)
+    return s2, cout
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -433,6 +474,56 @@ def _selftest_xor_and_half_adder_truth_tables() -> bool:
     return xor_ok and adder_ok
 
 
+def _selftest_full_adder_truth_table() -> bool:
+    """Real truth table for full_adder over all 8 (a,b,cin) combinations,
+    each in a fresh net -- this is the real proof the two-stage timing
+    choreography described in full_adder's own docstring actually works,
+    not just that it was reasoned through correctly on paper."""
+    XOR_GATE_LATENCY_MS = 20.0  # must match xor_gate()'s default gap_ms
+
+    def run(a_active: bool, b_active: bool, cin_active: bool) -> tuple:
+        net = Net(refractory_ms=5)
+        rt = net.build_live()
+        A = net.neuron("A", threshold=50, leak=0)
+        B = net.neuron("B", threshold=50, leak=0)
+        CIN = net.neuron("CIN", threshold=50, leak=0)
+        full_adder(net, A, B, CIN, "SUM", "COUT")
+        if a_active:
+            rt.stimulate("A", 1.0, 60.0)
+        if b_active:
+            rt.stimulate("B", 1.0, 60.0)
+        stage2_time = 1.0 + XOR_GATE_LATENCY_MS  # 21.0 -- s1's earliest possible fire time
+        for t in range(2, int(stage2_time)):
+            rt.tick(float(t))
+        if cin_active:
+            rt.stimulate("CIN", stage2_time, 60.0)   # aligned with s1's own arrival
+        else:
+            rt.tick(stage2_time)   # still flush any pending stage-1 delivery on time
+        for t in range(int(stage2_time) + 1, int(stage2_time) + 25):
+            rt.tick(float(t))
+        return rt.neurons["SUM"].fire_count, rt.neurons["COUT"].fire_count
+
+    combos = [(a, b, c) for a in (False, True) for b in (False, True) for c in (False, True)]
+    table = {combo: run(*combo) for combo in combos}
+    expected = {
+        (False, False, False): (0, 0), (False, False, True): (1, 0),
+        (False, True, False): (1, 0), (False, True, True): (0, 1),
+        (True, False, False): (1, 0), (True, False, True): (0, 1),
+        (True, True, False): (0, 1), (True, True, True): (1, 1),
+    }
+    ok = all((table[c][0] >= 1) == (expected[c][0] == 1) and
+             (table[c][1] >= 1) == (expected[c][1] == 1) for c in expected)
+    for combo in combos:
+        a, b, c = (int(x) for x in combo)
+        got = table[combo]
+        exp = expected[combo]
+        row_ok = (got[0] >= 1) == (exp[0] == 1) and (got[1] >= 1) == (exp[1] == 1)
+        print(f"    [{'PASS' if row_ok else 'FAIL'}] {a} {b} cin={c} -> sum,cout={got} (expect {exp})")
+    print(f"  [{'PASS' if ok else 'FAIL'}] full_adder: all 8 rows of the real truth table "
+          f"(the actual proof the two-stage timing choreography works)")
+    return ok
+
+
 if __name__ == "__main__":
     print("=" * 78)
     print("  PYSPIKE BRICKS -- self-test (native Synapse.delay_ms path)")
@@ -450,6 +541,8 @@ if __name__ == "__main__":
     results.append(_selftest_and_or_truth_tables())
     print("-- xor_gate / half_adder --")
     results.append(_selftest_xor_and_half_adder_truth_tables())
+    print("-- full_adder --")
+    results.append(_selftest_full_adder_truth_table())
     print("=" * 78)
     print(f"  {sum(results)}/{len(results)} passed")
     if not all(results):
