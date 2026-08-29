@@ -214,10 +214,31 @@ class STDPLearner:
     """
     Spike-Timing Dependent Plasticity.
 
-    If pre fires BEFORE post  (dt > 0): strengthen the synapse (LTP).
-    If pre fires AFTER  post  (dt < 0): weaken the synapse   (LTD).
+    If pre fires BEFORE OR AT THE SAME TIME AS post (dt >= 0): strengthen
+    the synapse (LTP). If pre fires AFTER post (dt < 0): weaken the
+    synapse (LTD).
 
-    Weight change: Δw = rate × exp(-|dt| / tau)
+    Weight change: Δw = rate × exp(-|dt| / tau) -- magnitude is greatest
+    at the shortest interval in either direction (the exponential peaks
+    at dt=0), which was already correct. What was wrong until 2026-08-29
+    was the BRANCH the dt=0 case fell into: `if dt > 0` (strict) sent
+    exact coincidence to the LTD branch, treating simultaneous pre/post
+    firing -- arguably the strongest possible correlation signal two
+    neurons can send -- as weakening instead of the maximum-strength
+    strengthening it should be.
+
+    Real, citable reference for the corrected behavior: Peter van der
+    Made's foundational BrainChip patent, US8250011B2 ("Autonomous
+    Learning Dynamic Artificial Neural Computing Device and Brain
+    Inspired System"): "The synapse strength value increase is greatest
+    at the shortest interval between the input pulse and the occurrence
+    of an output pulse." Confirmed via git history (commit a5a2109,
+    2026-06-22, this project's initial commit) that the strict `>` was
+    never a deliberate design choice -- it shipped as-is on day one, was
+    never revisited, and no comment anywhere discussed the dt=0 boundary
+    case. Fixed to `>=` to match the reference behavior, not because the
+    old value was arbitrary, but because there was no real, on-record
+    reason to keep it.
     """
 
     def __init__(self, rate: float = 0.01, tau: float = 20.0):
@@ -227,8 +248,8 @@ class STDPLearner:
     def update(self, synapse: Synapse, dt: float) -> float:
         """Returns new weight after STDP update."""
         delta = self.rate * math.exp(-abs(dt) / self.tau)
-        if dt > 0:
-            new_w = synapse.weight + delta        # LTP
+        if dt >= 0:
+            new_w = synapse.weight + delta        # LTP (dt==0 included, see class docstring)
         else:
             new_w = synapse.weight - delta * 0.5  # LTD (asymmetric)
         return max(0.0, min(1.0, new_w))
