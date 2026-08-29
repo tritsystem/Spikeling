@@ -41,6 +41,40 @@ SINGLE_SHOT_NOISE_STD = 0.08   # assumed -- "fast, imprecise" per Weebit's own r
 ITERATIVE_NOISE_STD = 0.015    # assumed -- "more precise, but slower" per Weebit's own real description
 HYBRID_NOISE_STD = 0.03        # assumed -- "a blend, best balance" per Weebit's own real description
 
+# ── added 2026-08-29, from a real, read-in-full source: "The Reliability
+# Issue in ReRam-based CIM Architecture for SNN: A Survey" (Wei-Ting Chen,
+# National Taiwan University, arXiv:2412.10389) -- two real, documented
+# ReRAM failure mechanisms not previously modeled anywhere in this file.
+#
+# HONEST SCOPE NOTE: the survey's own worked example (Section 4.1.1) is
+# specifically about BIT-SLICED binary ReRAM cells (each cell stores one
+# bit; a multi-bit weight is the summed, bit-significance-weighted current
+# of several such cells on one bit line) -- a different architecture from
+# THIS file's model, where each weight is ONE analog multi-level cell
+# (CONDUCTANCE_LEVELS states, no bit-slicing). The off-state-leakage
+# mechanism (below) is a per-cell physical property (real HRS resistance
+# is never literally infinite) and transfers directly regardless of
+# architecture. The "overlapping error" mechanism does NOT transfer
+# directly -- there is no bit-line-summing-of-binary-cells happening here
+# -- so `crossbar_sum_readout()` below is a disclosed ADAPTATION of the
+# survey's general point ("more simultaneously-summed cells -> more
+# read-out ambiguity") to this file's own analog per-cell architecture,
+# not a reproduction of the paper's specific binary-cell mechanism.
+HRS_ON_OFF_RATIO = 100.0       # disclosed assumption -- the survey describes the
+                                # on/off-ratio-affects-severity relationship
+                                # qualitatively but gives no specific ratio;
+                                # 100 is a plausible order-of-magnitude figure
+                                # for OxRAM-family devices per the general
+                                # ReRAM literature the survey itself cites,
+                                # not a sourced Weebit number.
+CROSSBAR_SUM_NOISE_PER_CELL = ITERATIVE_NOISE_STD  # disclosed assumption -- reuses
+                                # the existing iterative-mode per-cell noise
+                                # std as the per-cell current-distribution
+                                # spread referenced in the survey's real,
+                                # sourced claim that ReRAM resistance follows
+                                # a normal/log-normal distribution; the
+                                # specific magnitude is not itself sourced.
+
 
 class ReRAMSynapseArray:
     """A rows x cols array of ReRAM cells, each storing a weight in
@@ -128,10 +162,52 @@ class ReRAMSynapseArray:
         drift = 1.0 - pow(2.718281828, -age / retention_tau_ticks)
         relaxed_baseline = 0.5
         w = self.weight[row][col]
-        return w * (1.0 - drift * 0.05) + relaxed_baseline * (drift * 0.05)
+        w = w * (1.0 - drift * 0.05) + relaxed_baseline * (drift * 0.05)
+        # real off-state (HRS) leakage, added 2026-08-29: a real HRS cell's
+        # resistance is never literally infinite (Chen survey, Sec 4.1.1 --
+        # "the resistance of a ReRAM cell in the off state rarely resets to
+        # infinity"), so a cell programmed near the "off" end of its range
+        # still contributes a real, nonzero floor current instead of true
+        # zero. Floors the returned value at 1/HRS_ON_OFF_RATIO of the full
+        # [0,1] range; leaves already-higher values untouched.
+        return max(w, 1.0 / HRS_ON_OFF_RATIO)
 
     def endurance_margin(self, row: int, col: int) -> float:
         """0.0..1.0+ -- fraction of the real qualified endurance limit
         this cell has used. >1.0 means past the 100K-qualified point
         (still within the reported 1M max, but degraded)."""
         return self.cycles[row][col] / ENDURANCE_CYCLES_QUALIFIED
+
+    def sum_currents(self, row: int, col_input_pairs, rng) -> float:
+        """Real crossbar-style summed readout for one row, added
+        2026-08-29 -- ADAPTED from the Chen survey's real "overlapping
+        error" finding (Sec 4.1.1): the more cells contribute current to
+        one summed readout simultaneously, the more read-out ambiguity
+        accumulates, because each cell's real current is drawn from a
+        distribution (the survey's own sourced claim: ReRAM resistance
+        follows a normal/log-normal distribution), not a fixed value.
+
+        `col_input_pairs`: iterable of (col, input_value) -- the columns
+        contributing to this readout and their input drive. Returns the
+        summed current (post-leakage-floor `.read()` value x input,
+        summed across columns) PLUS extra noise whose std scales with
+        sqrt(n_active) -- the real statistical signature of summing N
+        independent noisy contributions, not a flat per-call constant.
+
+        HONEST SCOPE NOTE (see the module docstring for the full
+        disclosure): this models the GENERAL "more simultaneous cells ->
+        more readout ambiguity" effect the survey describes, not its
+        specific binary-bit-line mechanism, which doesn't apply to this
+        file's single-analog-cell-per-weight architecture. Opt-in --
+        existing hidden-layer code in this folder still reads cells
+        individually and sums in plain Python; this method exists for
+        code that wants the more realistic crossbar-level behavior."""
+        pairs = list(col_input_pairs)
+        total = 0.0
+        for col, x in pairs:
+            total += self.read(row, col) * x
+        n_active = sum(1 for _, x in pairs if x != 0)
+        if n_active > 0:
+            extra_std = CROSSBAR_SUM_NOISE_PER_CELL * (n_active ** 0.5)
+            total += rng.gauss(0.0, extra_std)
+        return total
