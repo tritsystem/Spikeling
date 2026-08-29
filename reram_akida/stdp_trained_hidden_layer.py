@@ -58,11 +58,16 @@ class STDPTrainedHiddenLayer:
     through the actual ReRAM programming model during training."""
 
     def __init__(self, n_channels, n_hidden, reram_pos, reram_neg,
-                 tau_w=40.0, stdp_rate=0.05, stdp_tau=3.0, seed=0):
+                 tau_w=40.0, stdp_rate=0.05, stdp_tau=3.0, seed=0,
+                 window_ticks=STDP_WINDOW_TICKS):
         self.n_channels = n_channels
         self.n_hidden = n_hidden
         self.reram_pos = reram_pos
         self.reram_neg = reram_neg
+        # was a hardcoded module constant read directly in _apply_stdp;
+        # promoted to a per-instance parameter (default unchanged) so a
+        # real sweep over this lever is possible without monkeypatching.
+        self.window_ticks = window_ticks
         rng = random.Random(seed + 4242)
         self.neurons = [
             AdExHabituationNeuron(threshold=rng.uniform(0.4, 1.1), gL=0.3, tau_w=tau_w)
@@ -107,7 +112,7 @@ class STDPTrainedHiddenLayer:
         real ReRAM programming model."""
         for c in range(self.n_channels):
             gap = self._tick - self._channel_last_active[c]
-            if gap > STDP_WINDOW_TICKS:
+            if gap > self.window_ticks:
                 continue
             # dt convention matches STDPLearner's own docstring: pre
             # before/at post (dt>=0) -> LTP. The channel was active `gap`
