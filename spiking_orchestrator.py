@@ -630,12 +630,18 @@ class SpikingPipeline:
             # access (see tool_tier_for_subtask()'s docstring for why that
             # was a real safety mismatch, not just an ergonomics gap)
             tier = tool_tier_for_subtask(self._specialist_tasks[neuron])
-            tools = {
-                "review":          getattr(vc, "REVIEW_TOOLS", tools),
-                "research_review": getattr(vc, "RESEARCH_REVIEW_TOOLS", tools),
-                "research":        getattr(vc, "RESEARCH_CODE_TOOLS", tools),
-                "code":            tools,
-            }[tier]
+            # WIRED TO spike_tool_gateway.py (2026-08-28): the tier -> tool
+            # list mapping used to be a hardcoded dict here. Now it's
+            # resolve_tool_provider(tier), reading spike_tools.yaml as the
+            # sole source of truth -- same 4 tiers, same real tool lists,
+            # but now config-driven and auditable instead of inline code.
+            # No fallback to a default tool list on a ToolGatewayError --
+            # letting that raise is deliberate (see the gateway's own
+            # module docstring on why silent defaulting is exactly the
+            # failure mode this exists to refuse).
+            from spike_tool_gateway import resolve_tool_provider
+            attr_name = resolve_tool_provider(tier)
+            tools = getattr(vc, attr_name, tools)
         return vc.do_claude_code(task=self._agent_task(neuron), tools=tools) or ""
 
     # Applies to EVERY working specialist -- Reviewer, PreRegister, Corrector,
@@ -662,19 +668,78 @@ class SpikingPipeline:
             # a dynamically-spawned specialist gets the subtask IT was
             # requested to do, not the top-level task -- and, up to the
             # growth cap, can request one of its own the same way
-            base = self._specialist_tasks[neuron]
-            return base if neuron in self._NO_SPAWN_HINT else base + self._SPAWN_HINT
+            raw_task = self._specialist_tasks[neuron]
+        else:
+            frames = {
+                "PreRegister": f"Before any edit, state ONE falsifiable claim about what this change will do: {self.task}",
+                "Implementer": self.task,
+                "TestWriter":  f"Add or adjust tests for: {self.task}",
+                "Reviewer":    self._reviewer_task(),
+                "Corrector":   self._corrector_task(),
+                "VaultLogger": self._vault_logger_task(),
+            }
+            raw_task = frames.get(neuron, self.task)
+        base = raw_task
+        if neuron not in self._NO_SPAWN_HINT:
+            base += self._SPAWN_HINT
+        return self._apply_skills(neuron, base, raw_task)
 
-        frames = {
-            "PreRegister": f"Before any edit, state ONE falsifiable claim about what this change will do: {self.task}",
-            "Implementer": self.task,
-            "TestWriter":  f"Add or adjust tests for: {self.task}",
-            "Reviewer":    self._reviewer_task(),
-            "Corrector":   self._corrector_task(),
-            "VaultLogger": self._vault_logger_task(),
-        }
-        base = frames.get(neuron, self.task)
-        return base if neuron in self._NO_SPAWN_HINT else base + self._SPAWN_HINT
+    def _apply_skills(self, neuron: str, base: str, raw_task: str) -> str:
+        """Appends matching skill(s) onto the end of the task text, via
+        TWO independent, deliberately different mechanisms:
+
+        1. select_skills_for(neuron) -- ROLE selection. A skill (review-
+           discipline, pre-registration-discipline, corrector-discipline)
+           self-selects by naming this neuron in its own description.
+           Fires on EVERY invocation of that neuron, regardless of task
+           content -- correct for "how Reviewer should behave."
+
+        2. select_skills_for_task(raw_task) -- TOPIC selection. The 50
+           environment-tailored skills self-select by keyword match
+           against `raw_task` (the specialist's own framed task text,
+           which embeds self.task or a dynamic specialist's real
+           subtask) -- deliberately NOT matched against `base`, which
+           may already carry SPAWN_HINT boilerplate or a role skill's
+           own injected content; matching against that risked a skill's
+           body text accidentally re-triggering another skill.
+
+        Results are combined in that order (role skills first, then
+        topic skills) and de-duplicated -- a skill matched by both paths
+        is only appended once. Byte-identical to `base` when nothing
+        matches on either path -- verified by test_pyspike_orchestrator_
+        parity.py still passing unchanged.
+
+        A missing/empty spike_skills/ directory is swallowed, not raised,
+        on both paths: unlike spike_tool_gateway's categories (mandatory,
+        pre-registered, "auto" is a hard error), not having any skill yet
+        is a normal, legitimate state, not a misconfiguration -- so
+        SkillError here means "nothing to add," and the specialist runs
+        exactly as it did before this feature existed."""
+        try:
+            from spike_skills import (
+                select_skills_for, select_skills_for_task, load_skill_content, SkillError,
+            )
+        except ImportError:
+            return base
+        try:
+            role_matched = select_skills_for(neuron)
+        except SkillError:
+            role_matched = []
+        try:
+            topic_matched = select_skills_for_task(raw_task)
+        except SkillError:
+            topic_matched = []
+        seen = set()
+        for name in role_matched + topic_matched:
+            if name in seen:
+                continue
+            seen.add(name)
+            try:
+                content = load_skill_content(name)
+            except SkillError:
+                continue
+            base += f"\n\n--- Skill: {name} ---\n{content.strip()}"
+        return base
 
     def _dynamic_specialists_note(self, verb: str) -> str:
         """Shared by _reviewer_task/_corrector_task/_vault_logger_task -- a

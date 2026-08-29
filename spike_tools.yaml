@@ -1,0 +1,28 @@
+# spike_tools.yaml — the ONE source of truth for which tool list backs each
+# specialist tier. See spike_tool_gateway.py's module docstring for the rule
+# this file exists to enforce: config always wins, no ambient-credential
+# auto-detection, no implicit fallback chain. If a category isn't listed
+# here, resolving it is a real error, not a silent guess.
+#
+# Wired into spiking_orchestrator.py's _run_real_agent() (2026-08-28),
+# replacing what used to be a hardcoded Python dict of the same 4 tiers ->
+# voice_commands.py tool-list attribute names. Behavior is UNCHANGED (same
+# 4 tiers, same tool lists) -- what changed is that the mapping now lives
+# in one auditable config file instead of inline code, and is provably the
+# only thing that decides it (see test_spike_tool_gateway.py).
+#
+# "provider" here names the exact attribute in voice_commands.py holding
+# that tier's real tool list -- never the literal string "auto" (rejected
+# on load).
+
+review:
+  provider: REVIEW_TOOLS
+
+research_review:
+  provider: RESEARCH_REVIEW_TOOLS
+
+research:
+  provider: RESEARCH_CODE_TOOLS
+
+code:
+  provider: CLAUDE_CODE_TOOLS
