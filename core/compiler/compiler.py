@@ -9,10 +9,19 @@ Parses .spk source files and emits:
 
 DSL Grammar:
   neuron <name> threshold=<int> leak=<int> [type=LIF|Izhikevich|AdEx]
-  connect <src> -> <dst> weight=<float>
+  connect <src> -> <dst> weight=<float> [delay=<float>]
   action <neuron> -> [<COMMAND>]
   refractory=<int>ms
   learn=STDP rate=<float>
+
+delay= is optional and defaults to 0.0 (instant delivery, unchanged
+behavior for every .spk file written before this grammar addition --
+see runtime.py's Synapse.delay_ms). Units are milliseconds, on the
+runtime's own real tick/timestamp scale (whatever unit the caller's
+stimulate()/tick() timestamps are already in) -- NOT a separate
+biological-ms constant needing rescaling; delay_ms is compared directly
+against the same current_time_ms values _fire()/tick() already use
+throughout this runtime.
 """
 
 import re
@@ -83,7 +92,20 @@ class SpikelingParser:
     # weight may be NEGATIVE now: a negative weight is an INHIBITORY synapse --
     # when src fires it DRAINS the target's membrane potential instead of adding
     # to it, so one neuron can veto/suppress another (see runtime propagation).
-    CONNECT_RE    = re.compile(r"connect\s+(\w+)\s*->\s*(\w+)\s+weight=(-?[\d.]+)")
+    #
+    # delay= is optional (trailing, real per-synapse transmission delay --
+    # see runtime.py's Synapse.delay_ms / ConnectionDef.delay_ms above).
+    # Before this, the .spk TEXT grammar had NO way to express a delayed
+    # synapse at all -- the runtime and the pyspike.py Python builder API
+    # (NeuronRef.to(..., delay_ms=...)) already fully supported delay
+    # (commit 108ab13, 2026-08-16), but CONNECT_RE never captured it, so
+    # every .spk-file-parsed connection was silently forced to the default
+    # delay_ms=0.0 regardless of intent -- there was no syntax to even
+    # attempt a delayed connect from a text file, so nothing was being
+    # silently dropped mid-pipeline (the Izhikevich/AdEx pattern); the
+    # syntax itself simply didn't exist yet. This adds it.
+    CONNECT_RE    = re.compile(
+        r"connect\s+(\w+)\s*->\s*(\w+)\s+weight=(-?[\d.]+)(?:\s+delay=([\d.]+))?")
     ACTION_RE     = re.compile(r"action\s+(\w+)\s*->\s*\[(\w+)\]")
     REFRACTORY_RE = re.compile(r"refractory=(\d+)ms")
     LEARN_RE      = re.compile(r"learn=(\w+)\s+rate=([\d.]+)")
@@ -126,8 +148,10 @@ class SpikelingParser:
             elif line.startswith("connect"):
                 m = self.CONNECT_RE.match(line)
                 if m:
-                    src, dst, weight = m.groups()
-                    ast.connections.append(ConnectionDef(src, dst, float(weight)))
+                    src, dst, weight, delay = m.groups()
+                    ast.connections.append(ConnectionDef(
+                        src, dst, float(weight),
+                        delay_ms=float(delay) if delay is not None else 0.0))
                 else:
                     errors.append(f"Line {lineno}: malformed connect — '{line}'")
 
