@@ -75,3 +75,11 @@ electronics_captures/
 # personal test captures, not source
 live_frame.jpg
 voice_clip.wav
+
+# generated result/sweep dumps (regenerate from the scripts that emit them)
+**/memory_*_results.txt
+**/cva_*_results.txt
+**/dimension_push_results.txt
+ledger_*_refute.txt
+*_rate_tau_sweep.csv
+snn_token_experiment_results.json

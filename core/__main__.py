@@ -37,10 +37,10 @@ def main():
         spk_path = spk_args[0] if spk_args else default_demo
 
     if not os.path.exists(spk_path):
-        print(f"[spikeling] error: file not found — {spk_path}")
+        print(f"[spikeling] error: file not found - {spk_path}")
         sys.exit(1)
 
-    print(f"[spikeling] compiling {spk_path} …")
+    print(f"[spikeling] compiling {spk_path} ...")
     output_dir = os.path.dirname(os.path.abspath(spk_path))
     ast        = compile_file(spk_path, output_dir=output_dir)
     rt         = SpikelingRuntime(ast)

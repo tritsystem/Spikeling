@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: "If you use Spikeling, please cite it as below."
+title: "Spikeling: a DSL and multi-backend runtime for spiking neural networks"
+abstract: >-
+  A compact domain-specific language (.spk) for describing spiking neural
+  networks, with one description running unchanged on four backends: an
+  interactive Python runtime with STDP, generated C for embedded targets,
+  generated Verilog for FPGA simulation, and GDScript for driving game AI.
+  Includes LIF / Izhikevich / AdEx / Resonator neuron types, a hardware
+  sensor-adapter layer, and an MCP tool surface.
+type: software
+authors:
+  - family-names: Branaa
+    given-names: Gavin
+    email: gbranaa4@gmail.com
+repository-code: "https://github.com/tritsystem/Spikeling"
+url: "https://github.com/tritsystem/Spikeling"
+license: MIT
+version: 1.0.0
+date-released: 2026-09-03
+keywords:
+  - spiking neural network
+  - neuromorphic computing
+  - domain-specific language
+  - STDP
+  - reservoir computing
+  - FPGA

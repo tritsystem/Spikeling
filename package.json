@@ -1,23 +1,23 @@
 {
-  "name": "spikeling",
+  "name": "spikeling-render-pipeline",
   "version": "1.0.0",
-  "description": "A neuromorphic **domain-specific language and runtime for spiking neural\r networks**, by Gavin Branaa. You describe a network of spiking neurons and\r synapses in a compact `.spk` file, and run that one description on any of four\r backends:",
-  "main": "index.js",
+  "private": true,
+  "description": "Dev-only: esbuild + Playwright pipeline for rendering/screenshotting the ai-apps React UIs. Not the Spikeling runtime -- that is Python, see core/ and README.md.",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"no JS tests; the project is Python -- run: cd core && python -m pytest\" && exit 0"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gbranaa4-hue/Spikeling.git"
+    "url": "git+https://github.com/tritsystem/Spikeling.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": ["spiking-neural-network", "neuromorphic", "dsl"],
+  "author": "Gavin Branaa <gbranaa4@gmail.com>",
+  "license": "MIT",
   "type": "commonjs",
   "bugs": {
-    "url": "https://github.com/gbranaa4-hue/Spikeling/issues"
+    "url": "https://github.com/tritsystem/Spikeling/issues"
   },
-  "homepage": "https://github.com/gbranaa4-hue/Spikeling#readme",
+  "homepage": "https://github.com/tritsystem/Spikeling#readme",
   "dependencies": {
     "esbuild": "^0.28.1",
     "playwright": "^1.61.1",

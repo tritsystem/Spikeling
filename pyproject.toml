@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spikeling"
+version = "1.0.0"
+description = "A domain-specific language and runtime for spiking neural networks: one .spk file, four backends (Python, C, Verilog, GDScript)."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Gavin Branaa", email = "gbranaa4@gmail.com" }]
+requires-python = ">=3.10"
+keywords = ["spiking neural network", "neuromorphic", "dsl", "lif", "stdp", "reservoir computing", "fpga"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+# The core Python runtime (compiler + runtime + encoder) is pure stdlib.
+# The C / Verilog / GDScript backends and the ai-apps are separate and carry
+# their own toolchains -- see README.md.
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.urls]
+Homepage = "https://github.com/tritsystem/Spikeling"
+Repository = "https://github.com/tritsystem/Spikeling"
+Issues = "https://github.com/tritsystem/Spikeling/issues"
+Changelog = "https://github.com/tritsystem/Spikeling/blob/main/CHANGELOG.md"
+
+[project.scripts]
+# thin wrapper over `python -m core`; that remains the canonical interface
+spikeling = "core.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["core*"]
