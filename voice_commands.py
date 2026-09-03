@@ -674,6 +674,11 @@ _PROJECT_CANDIDATES = {
     "symmetry":  r"C:\Users\gbran\OneDrive\Documents\symmetry-selection-rule",  # symmetry-selection-rule
     "quasicrystal": r"C:\Users\gbran\OneDrive\Documents\quasicrystal-mems-reservoir",
     "profile":   r"C:\Users\gbran\OneDrive\Documents\gbranaa4-hue",             # profile README
+    # ── systems (real Bash required: cargo build + QEMU boot, not just
+    #    file edits) -- registered for kernel_milestone_pipeline.py, see
+    #    that file's own module doc for why it doesn't reuse the generic
+    #    SpikingPipeline routing above.
+    "spikeling_os": r"C:\Users\gbran\OneDrive\Documents\spikeling-os",
 }
 PROJECTS = {name: path for name, path in _PROJECT_CANDIDATES.items() if os.path.isdir(path)}
 
@@ -849,6 +854,19 @@ def do_claude_code(task=None, project_dir=None, tools=None, timeout=300, resume=
             proc.wait(timeout=5)
         except Exception:
             proc.kill()
+        # BUG FIX (2026-08-21): stdout stream can end (subprocess exits) with
+        # no "result" event ever emitted -- e.g. the claude CLI child process
+        # itself crashing mid-task -- and this previously returned silently.
+        # stderr was always captured into a pipe (stderr=subprocess.PIPE
+        # above) but never read anywhere, so the real cause was invisible.
+        # Surface it now whenever the run didn't reach a clean result.
+        if result_text is None and proc.stderr:
+            try:
+                err = proc.stderr.read()
+                if err and err.strip():
+                    print(f"(Claude Code task ended with no result; stderr: {err.strip()})", flush=True)
+            except Exception:
+                pass
 
     return _strip_markdown(result_text.strip()) if result_text else None
 

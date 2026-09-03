@@ -4,35 +4,41 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>SPIKEMESH</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  /* Explicit user direction: darker background, neon-lit emphasis words --
-     commits fully to one dark-neon visual world rather than switching by
-     theme (a deliberate single-world aesthetic, not a light variant of the
-     same neon look). Three neon roles kept deliberately separate: --glow
-     (electric cyan) for headings/emphasis words, --accent (neon magenta)
-     for interactive/CTA moments, --spine (electric violet) reserved ONLY
-     for the backbone/connector motif so the structural language stays
-     visually distinct from both. Dashboard-of-modules layout shape stays
-     the real, confirmed match to Project NOMAD's own Command Center
-     (dashboard -> module tiles -> detail view) -- structural precedent,
-     unchanged from the prior pass. */
+  /* Re-themed 2026-08-20 on explicit request: "make the entire project
+     themed like method lm" -- supersedes the prior "commits fully to one
+     dark-neon visual world" direction noted below the original comment
+     used to live here. Base identity (backdrop, panels, fonts, default
+     glow/spine) now matches the real methodlm_gui.html "quantum console"
+     token-for-token (same hex values, same ui-monospace/system-ui stack,
+     no external font import). Per-module and per-project accent colors
+     (the --card-accent overrides on each .module-card, and the Projects
+     tile's PROJECT_PALETTE) are DELIBERATELY left alone -- that's the
+     separate, still-current "different color for every page or project"
+     request from one turn earlier; this pass only recolors what falls
+     back to the shared defaults (--glow, --spine, --accent, --ok/--err),
+     not the per-tile overrides layered on top of them. */
   :root {
-    --bg: #0a0a12; --panel: #121022; --panel-2: #191632; --ink: #e9e6f5; --ink-dim: #a29dc4;
-    --ink-faint: #6e6894; --rule: #2b2650; --accent: #ff3df0; --accent-ink: #1a0018;
-    --spine: #b83dff; --spine-dim: #5c2b8a; --glow: #3df5ff;
-    --ok: #4affa0; --err: #ff5c7a; --mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, monospace;
-    --sans: 'Inter', -apple-system, "Segoe UI", Arial, sans-serif;
-    --display: 'Fraunces', Georgia, 'Times New Roman', serif;
+    --bg: #0a0603; --panel: #1a0f08; --panel-2: #241608; --ink: #ffece0; --ink-dim: #e6b98f;
+    --ink-faint: #a5744a; --rule: #3d2410; --accent: #ff7518; --accent-ink: #1a0f06;
+    --spine: #ff9d3c; --spine-dim: #7a4a1f; --glow: #ffca3a;
+    --ok: #ffca3a; --err: #ff4d3d; --mono: ui-monospace, "Cascadia Code", "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --display: var(--mono);
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.5; }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(1200px 700px at 78% -8%, rgba(255,120,25,.13), transparent 60%),
+      radial-gradient(1000px 620px at 8% 108%, rgba(255,165,55,.10), transparent 58%),
+      var(--bg);
+    color: var(--ink); font-family: var(--sans); line-height: 1.5;
+  }
   .display { font-family: var(--display); font-optical-sizing: auto; }
-  .glow { color: var(--glow); text-shadow: 0 0 5px var(--glow), 0 0 14px var(--glow), 0 0 32px rgba(61,245,255,0.45); }
-  .dash-heading h1, .view-title, .module-card h3 {
-    color: var(--glow); text-shadow: 0 0 5px var(--glow), 0 0 14px var(--glow), 0 0 30px rgba(61,245,255,0.4);
+  .glow { color: var(--glow); text-shadow: 0 0 5px var(--glow), 0 0 14px var(--glow), 0 0 32px color-mix(in srgb, var(--glow) 45%, transparent); }
+  .dash-heading h1, .view-title {
+    color: var(--glow); text-shadow: 0 0 5px var(--glow), 0 0 14px var(--glow), 0 0 30px color-mix(in srgb, var(--glow) 40%, transparent);
   }
 
   header {
@@ -71,7 +77,7 @@
   }
   .backbone::before {
     content: ""; position: absolute; left: 18px; top: 14px; bottom: 14px; width: 7px;
-    border-radius: 2px; box-shadow: 0 0 10px var(--spine), 0 0 22px rgba(184,61,255,0.5);
+    border-radius: 2px; box-shadow: 0 0 10px var(--spine), 0 0 22px color-mix(in srgb, var(--spine) 50%, transparent);
     background: repeating-linear-gradient(180deg,
       var(--spine) 0px, var(--spine) 7px,
       transparent 7px, transparent 11px);
@@ -85,7 +91,7 @@
   .backbone-principle { display: flex; gap: 10px; align-items: baseline; }
   .backbone-principle .n {
     font-family: var(--mono); font-size: 11px; color: var(--spine); flex-shrink: 0; width: 16px; font-weight: 600;
-    text-shadow: 0 0 4px var(--spine), 0 0 12px rgba(184,61,255,0.6);
+    text-shadow: 0 0 4px var(--spine), 0 0 12px color-mix(in srgb, var(--spine) 60%, transparent);
   }
   .backbone-principle .t { font-size: 12.5px; color: var(--ink-dim); line-height: 1.45; }
   .backbone-source { margin-top: 14px; font-size: 11.5px; color: var(--ink-faint); }
@@ -120,8 +126,14 @@
     width: 9px; height: 9px; border-radius: 50%; background: var(--spine-dim);
     border: 2px solid var(--bg); box-sizing: content-box; transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
   }
-  .module-card:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: 0 0 16px rgba(255,61,240,0.25); }
-  .module-card:hover::after { background: var(--accent); transform: translateX(-50%) scale(1.15); box-shadow: 0 0 10px var(--accent); }
+  .module-card:hover { border-color: var(--card-accent, var(--accent)); transform: translateY(-1px); box-shadow: 0 0 16px color-mix(in srgb, var(--card-accent, var(--accent)) 35%, transparent); }
+  .module-card:hover::after { background: var(--card-accent, var(--accent)); transform: translateX(-50%) scale(1.15); box-shadow: 0 0 10px var(--card-accent, var(--accent)); }
+  .module-card h3 {
+    color: var(--card-accent, var(--glow));
+    text-shadow: 0 0 5px var(--card-accent, var(--glow)), 0 0 14px var(--card-accent, var(--glow)),
+      0 0 30px color-mix(in srgb, var(--card-accent, var(--glow)) 45%, transparent);
+  }
+  .module-card:hover .module-icon { background: color-mix(in srgb, var(--card-accent, var(--accent)) 22%, var(--panel-2)); }
   .module-icon {
     width: 38px; height: 38px; border-radius: 9px; background: var(--panel-2); display: flex; align-items: center;
     justify-content: center; font-size: 18px;
@@ -187,6 +199,8 @@
   }
   .hint { font-size: 13px; color: var(--ink-faint); margin-top: 6px; }
 
+  .frame-wrap { border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; height: 78vh; min-height: 520px; background: var(--panel); }
+  .frame-wrap iframe { width: 100%; height: 100%; border: none; display: block; background: var(--bg); }
   table.status-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13.5px; }
   table.status-table td { padding: 10px 4px; border-bottom: 1px solid var(--rule); }
   table.status-table td:first-child { color: var(--ink-faint); font-family: var(--mono); font-size: 12px; width: 40%; }
@@ -225,55 +239,61 @@
 
     <div class="module-grid-wrap">
     <div class="module-grid">
-      <button class="module-card" data-open="ask" type="button">
+      <button class="module-card" data-open="ask" type="button" style="--card-accent:#3df5ff">
         <div class="module-icon">💬</div>
         <h3>AI Assistant</h3>
         <p>Ask anything -- answers pull from your vault notes and knowledge base, generated locally.</p>
         <div class="module-tag"><span class="status-dot" id="mod-dot-ollama"></span>Ollama · this machine</div>
       </button>
-      <button class="module-card" data-open="investigate" type="button">
+      <button class="module-card" data-open="investigate" type="button" style="--card-accent:#ff3df0">
         <div class="module-icon">🔎</div>
         <h3>Root Cause</h3>
         <p>Real causal investigation over your own data -- pre-registered tests, not just an opinion.</p>
         <div class="module-tag">MethodLM harness</div>
       </button>
-      <button class="module-card" data-open="pm" type="button">
+      <button class="module-card" data-open="pm" type="button" style="--card-accent:#b83dff">
         <div class="module-icon">🗂</div>
         <h3>Project Manager</h3>
         <p>Real git hygiene across every known project, notes synced via git, and a safe command palette.</p>
         <div class="module-tag">16 real repos tracked</div>
       </button>
-      <button class="module-card" data-open="tasks" type="button">
+      <button class="module-card" data-open="tasks" type="button" style="--card-accent:#4affa0">
         <div class="module-icon">🤖</div>
         <h3>Agent Activity</h3>
         <p>Routing log of Spike's 10-specialist agent team -- which specialist fired, and why.</p>
         <div class="module-tag">task_decisions.jsonl</div>
       </button>
-      <button class="module-card" data-open="playbook" type="button">
+      <button class="module-card" data-open="playbook" type="button" style="--card-accent:#ff7518">
         <div class="module-icon">📓</div>
         <h3>Playbook Generator</h3>
         <p>AI-generated study material for any tracked project or vault topic -- real source, LLM-written Q&amp;A.</p>
         <div class="module-tag">Grounded, not hand-verified</div>
       </button>
-      <button class="module-card" data-open="guard" type="button">
+      <button class="module-card" data-open="guard" type="button" style="--card-accent:#ff4d3d">
         <div class="module-icon">🛡</div>
         <h3>Server Guard</h3>
         <p>Offline server health + intrusion signals -- disk, network, Defender, event log.</p>
         <div class="module-tag" id="guard-tag-status">checking freshness...</div>
       </button>
-      <button class="module-card" data-open="status" type="button">
+      <button class="module-card" data-open="status" type="button" style="--card-accent:#3d8bff">
         <div class="module-icon">📡</div>
         <h3>System Status</h3>
         <p>Live health of every real service on this mesh node.</p>
         <div class="module-tag">Auto-refreshing</div>
       </button>
-      <button class="module-card" data-open="engine" type="button">
+      <button class="module-card" data-open="engine" type="button" style="--card-accent:#ffcf6b">
         <div class="module-icon">✈️</div>
         <h3>Jet-Engine Pipeline</h3>
         <p>Real staged spiking pipeline -- compressor &rarr; combustion &rarr; turbine feedback &rarr; exhaust.</p>
         <div class="module-tag">jet_engine_spike_pipeline.spk</div>
       </button>
-      <button class="module-card" data-open="modellab" type="button">
+      <button class="module-card" data-open="projects" type="button" style="--card-accent:#ffca3a">
+        <div class="module-icon">📒</div>
+        <h3>Projects</h3>
+        <p>The Ledger's domains, real folders, and vault notes -- fused in from Ledger Companion.</p>
+        <div class="module-tag" id="projects-tag-status">checking...</div>
+      </button>
+      <button class="module-card" data-open="modellab" type="button" style="--card-accent:#8a7ba0">
         <div class="module-icon">🧪</div>
         <h3>Model Lab</h3>
         <p>Vet or fine-tune a local model's causal-reasoning discipline against a real 9-trap rubric.</p>
@@ -440,6 +460,19 @@
     <div id="guard-error" class="error-box" style="display:none;"></div>
   </section>
 
+  <!-- ---- Projects (fused in from Ledger Companion, a separate real
+       process on this same machine, port 8790 -- cross-origin fetch,
+       not a second copy of its data) ---- -->
+  <section id="view-projects" class="view">
+    <button class="back-link" data-back type="button">&larr; Modules</button>
+    <h2 class="view-title">Projects</h2>
+    <p class="view-desc" id="projects-desc">Loading from Ledger Companion...</p>
+    <div id="projects-frame-wrap" class="frame-wrap" style="display:none;">
+      <iframe id="projects-frame" title="Ledger Companion" loading="lazy"></iframe>
+    </div>
+    <div id="projects-error" class="error-box" style="display:none;"></div>
+  </section>
+
   <!-- ---- Status ---- -->
   <section id="view-status" class="view">
     <button class="back-link" data-back type="button">&larr; Modules</button>
@@ -515,6 +548,7 @@
       if (el.dataset.open === 'guard') loadGuard();
       if (el.dataset.open === 'playbook') loadPlaybookList();
       if (el.dataset.open === 'investigate') checkMethodlmGui();
+      if (el.dataset.open === 'projects') loadProjects();
     });
   });
   document.querySelectorAll('[data-back]').forEach(function (el) {
@@ -917,6 +951,58 @@
         el.textContent = 'MethodLM console unavailable on this server right now.';
       });
   }
+
+  // ---- Projects: real cross-origin fetch to Ledger Companion (a separate
+  // process, port 8790 on this same machine) -- genuinely fused data, not
+  // a static copy pasted in here. /api/projects-summary is intentionally
+  // unauthenticated (names/paths only, same low-sensitivity call as
+  // Companion's own home page) so this cross-origin GET doesn't need the
+  // PIN plumbed through. ----
+  var COMPANION_ORIGIN = window.location.hostname + ':8790';
+  var COMPANION_PROTO = window.location.protocol === 'https:' ? 'https' : 'http';
+  var COMPANION_BASE = COMPANION_PROTO + '://' + COMPANION_ORIGIN;
+  var PROJECT_PALETTE = ['#3df5ff', '#ff3df0', '#b83dff', '#4affa0', '#ff7518', '#ff4d3d', '#3d8bff', '#ffcf6b'];
+  function colorForSlug(slug) {
+    var h = 0;
+    for (var i = 0; i < slug.length; i++) h = (h * 31 + slug.charCodeAt(i)) >>> 0;
+    return PROJECT_PALETTE[h % PROJECT_PALETTE.length];
+  }
+  function refreshProjectsTag() {
+    var el = document.getElementById('projects-tag-status');
+    if (!el) return;
+    fetch(COMPANION_BASE + '/api/projects-summary', { cache: 'no-store' })
+      .then(function (r) { if (!r.ok) throw new Error('not ok'); return r.json(); })
+      .then(function (d) { el.textContent = d.domains.length + ' domains · Companion live'; })
+      .catch(function () { el.textContent = 'Ledger Companion not reachable'; });
+  }
+  function loadProjects() {
+    var frameWrap = document.getElementById('projects-frame-wrap');
+    var frame = document.getElementById('projects-frame');
+    var errEl = document.getElementById('projects-error');
+    var descEl = document.getElementById('projects-desc');
+    errEl.style.display = 'none';
+    frameWrap.style.display = 'none';
+    // Reachability check first (a bare <iframe src> pointed at a dead
+    // server just renders a blank/browser-error frame with no reliable
+    // cross-origin onerror signal) -- reuse the same summary endpoint the
+    // tag-status check already calls, then embed the REAL page, not a
+    // rebuilt copy of it. ?direct=1 is required: Companion's own "/" now
+    // redirects to THIS page when it can reach SPIKEMESH, which would
+    // otherwise iframe-loop back here.
+    fetch(COMPANION_BASE + '/api/projects-summary', { cache: 'no-store' })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function () {
+        descEl.textContent = 'Live, embedded from Ledger Companion (' + COMPANION_BASE + ').';
+        if (frame.src !== COMPANION_BASE + '/?direct=1') frame.src = COMPANION_BASE + '/?direct=1';
+        frameWrap.style.display = 'block';
+      })
+      .catch(function (e) {
+        descEl.textContent = '';
+        errEl.textContent = 'Ledger Companion not reachable at ' + COMPANION_BASE + ' -- start it with `python server.py` in ledger-companion. Error: ' + e.message;
+        errEl.style.display = 'block';
+      });
+  }
+  refreshProjectsTag();
 
   // ---- Jet-Engine Pipeline ----
   document.getElementById('eng-btn').addEventListener('click', function () {
