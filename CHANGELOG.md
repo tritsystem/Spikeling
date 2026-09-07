@@ -7,6 +7,18 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 _Nothing yet._
 
+## [1.0.1] — 2026-09-06
+
+### Fixed
+
+- `pyproject.toml` only packaged `core*`; a real `pip install` of `spikeling`
+  did not ship the loose root-level modules (`pyspike.py`, `pyspike_causal.py`,
+  `pyspike_surrogate_gradient.py`) that every downstream consumer
+  (`spiking_orchestrator.py`, `arch-finder`, the new `spikegate` package)
+  actually imports. Added `[tool.setuptools] py-modules = [...]` for those
+  three files — additive only, no existing `sys.path.insert(...)` call site
+  changes behavior.
+
 ## [1.0.0] — 2026-09-03
 
 First tagged release. The `.spk` language and the four backends have been stable
