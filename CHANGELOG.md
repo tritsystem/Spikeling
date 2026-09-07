@@ -7,6 +7,31 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 _Nothing yet._
 
+## [1.0.2] — 2026-09-06
+
+### Fixed
+
+- `pyproject.toml`'s `py-modules` list was still missing `pyspike_neuron_models`
+  (the standalone, independently-verified Izhikevich/AdEx implementations) —
+  added it alongside the three modules already listed in 1.0.1.
+- `Net.neuron()`'s live-mode branch (used after `build_live()`) always created
+  a plain `NeuronState` in `self._live_rt.neurons` regardless of the declared
+  `type`, so a `type="Resonator"` neuron added *after* `build_live()` never
+  landed in `self._live_rt.resonators` — and `step_resonators()` only ever
+  iterates `.resonators.values()`, so such a neuron could never fire no
+  matter what it was driven with. The batch `build()` path
+  (`SpikelingRuntime.__init__`) already routed by `neuron_type` correctly;
+  live mode had silently diverged from it. Found while building a
+  heterogeneous-neuron-dynamics demo in the sibling `spikegate` project (a
+  live-constructed Resonator produced zero detections regardless of input —
+  not a tuning problem, the neuron was never actually a Resonator at
+  runtime). Fixed by routing on `type` in the live branch too, deriving
+  `coupling` the same way the batch path does
+  (`DEFAULT_RESONATOR_BASE_GAIN * omega**2`) when not given explicitly.
+  Regression test: `test_live_resonator_routing.py` (routing + real
+  on-frequency detection + off-frequency rejection, all driven through the
+  actual live-mode code path, not the batch one).
+
 ## [1.0.1] — 2026-09-06
 
 ### Fixed

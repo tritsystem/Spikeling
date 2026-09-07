@@ -16,7 +16,7 @@ authors:
 repository-code: "https://github.com/tritsystem/Spikeling"
 url: "https://github.com/tritsystem/Spikeling"
 license: MIT
-version: 1.0.1
+version: 1.0.2
 date-released: 2026-09-06
 keywords:
   - spiking neural network

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "spikeling"
-version = "1.0.1"
+version = "1.0.2"
 description = "A domain-specific language and runtime for spiking neural networks: one .spk file, four backends (Python, C, Verilog, GDScript)."
 readme = "README.md"
 license = { text = "MIT" }
@@ -46,4 +46,4 @@ include = ["core*"]
 # Loose root-level modules that other tools in this portfolio (and the new
 # `spikegate` package) import directly (`from pyspike import Net`) against a
 # real installed `spikeling` package, not just a local checkout on sys.path.
-py-modules = ["pyspike", "pyspike_causal", "pyspike_surrogate_gradient"]
+py-modules = ["pyspike", "pyspike_causal", "pyspike_surrogate_gradient", "pyspike_neuron_models"]

@@ -46,13 +46,16 @@ re-parsing per wave:
                           # bit-for-bit on a real network, then benchmarks the
                           # string-round-trip cost this replaces
 """
+import math
 import os
 import sys
 import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "core"))
 from compiler.compiler import SpikelingAST, NeuronDef, ConnectionDef, ActionDef  # noqa: E402
-from runtime.runtime import SpikelingRuntime, NeuronState, Synapse               # noqa: E402
+from runtime.runtime import (  # noqa: E402
+    DEFAULT_RESONATOR_BASE_GAIN, NeuronState, ResonatorState, SpikelingRuntime, Synapse,
+)
 
 
 class NeuronRef:
@@ -120,8 +123,27 @@ class Net:
         if self._live_rt is not None:
             # LIVE mode: this neuron must exist in the runtime immediately,
             # not just in the AST -- see build_live()'s docstring for why.
-            self._live_rt.neurons[name] = NeuronState(
-                name=name, threshold=float(threshold), leak=float(leak))
+            #
+            # BUG FOUND AND FIXED (2026-09-06): this branch always created a
+            # plain NeuronState in self._live_rt.neurons, regardless of
+            # `type` -- so a Resonator neuron added after build_live() never
+            # landed in self._live_rt.resonators, and step_resonators() could
+            # never see it (it only iterates .resonators.values()). The batch
+            # build() path (SpikelingRuntime.__init__) already routes by
+            # neuron_type correctly; live mode had silently diverged from it.
+            # Found while building a demo driving a live-constructed Resonator
+            # and getting zero detections regardless of input -- not a tuning
+            # problem, the neuron was never actually a Resonator at runtime.
+            if type == "Resonator":
+                live_coupling = coupling
+                if live_coupling is None:
+                    omega = 2 * math.pi * freq_hz
+                    live_coupling = DEFAULT_RESONATOR_BASE_GAIN * (omega ** 2)
+                self._live_rt.resonators[name] = ResonatorState(
+                    name=name, freq_hz=freq_hz, damping=damping, coupling=live_coupling)
+            else:
+                self._live_rt.neurons[name] = NeuronState(
+                    name=name, threshold=float(threshold), leak=float(leak))
         return NeuronRef(self, name)
 
     def connect(self, src, dst, weight: float = 1.0, delay_ms: float = 0.0) -> None:
