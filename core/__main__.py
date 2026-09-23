@@ -14,6 +14,19 @@ Usage:
 import sys
 import os
 
+# Windows' legacy console codepage (cp1252 etc.) can't encode the box-drawing
+# characters the interactive runtime prints (runtime.py's banner) -- crashes the
+# very first `python -m core` a new user tries, on a default Windows terminal,
+# with no non-ASCII input involved at all. Reconfigure as early as possible,
+# before any print happens; a no-op on already-UTF-8 setups (Linux/macOS, or a
+# UTF-8 Windows Terminal).
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
 sys.path.insert(0, os.path.dirname(__file__))
 
 from compiler.compiler import compile_file

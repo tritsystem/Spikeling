@@ -42,6 +42,15 @@ spikeling = "core.__main__:main"
 [tool.setuptools.packages.find]
 include = ["core*"]
 
+[tool.setuptools.package-data]
+# .spk files are data, not Python, so setuptools drops them by default -- this
+# silently broke the package's own default demo: a fresh `pip install .` had
+# core/examples/*.py (the fixture/test files) but not core/examples/*.spk,
+# so `spikeling --no-interactive` (and plain `spikeling`) failed with
+# "file not found" on sound_localizer.spk, the file the entry point runs when
+# given no argument. Reproduced in a genuinely fresh install before fixing.
+core = ["examples/*.spk", "examples/**/*.spk", "stdlib/*.spk"]
+
 [tool.setuptools]
 # Loose root-level modules that other tools in this portfolio (and the new
 # `spikegate` package) import directly (`from pyspike import Net`) against a
