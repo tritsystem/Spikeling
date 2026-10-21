@@ -1,0 +1,76 @@
+{
+  "meta": {
+    "sweep": "nhid",
+    "steps": 250,
+    "ticks": 1500,
+    "seed": 0,
+    "selftest": false
+  },
+  "cells": [
+    {
+      "n_hid": 4,
+      "bptt_r2": 0.954240959054453,
+      "raf_r2": 0.8558326999207007,
+      "sign_w2pos_all": 0.966496012776232,
+      "sign_w2neg_all": 0.47355852629274003,
+      "sign_w2pos_late": 0.9027317114286942,
+      "sign_w2neg_late": 0.05631991103913779,
+      "sign_at_cross": 1.0,
+      "n_cross": 2,
+      "cross_wt": 0.007801592866633706,
+      "unreach": 0.0
+    },
+    {
+      "n_hid": 6,
+      "bptt_r2": 0.9392341039260657,
+      "raf_r2": 0.7994227979941849,
+      "sign_w2pos_all": 0.9616916511602025,
+      "sign_w2neg_all": 0.8346846045046605,
+      "sign_w2pos_late": 0.9834740001699019,
+      "sign_w2neg_late": 0.9142919552321837,
+      "sign_at_cross": 1.0,
+      "n_cross": 4,
+      "cross_wt": 1.3331380141802844,
+      "unreach": 0.0
+    },
+    {
+      "n_hid": 8,
+      "bptt_r2": 0.9873964637427299,
+      "raf_r2": 0.8349657337558487,
+      "sign_w2pos_all": 0.7936884258389842,
+      "sign_w2neg_all": 0.8917051358984445,
+      "sign_w2pos_late": 0.4748123917001888,
+      "sign_w2neg_late": 0.7220868999750003,
+      "sign_at_cross": 1.0,
+      "n_cross": 10,
+      "cross_wt": 1.063881388907259,
+      "unreach": 0.0
+    },
+    {
+      "n_hid": 12,
+      "bptt_r2": 0.9928403127773412,
+      "raf_r2": 0.8364602161577706,
+      "sign_w2pos_all": 0.6835779940361508,
+      "sign_w2neg_all": 0.9037077586062044,
+      "sign_w2pos_late": 0.42161456344723724,
+      "sign_w2neg_late": 1.0,
+      "sign_at_cross": 1.0,
+      "n_cross": 12,
+      "cross_wt": 2.8569502659772077,
+      "unreach": 0.0
+    },
+    {
+      "n_hid": 16,
+      "bptt_r2": 0.9715395743095794,
+      "raf_r2": 0.8820850669925945,
+      "sign_w2pos_all": 0.9115179085118132,
+      "sign_w2neg_all": 0.9164050523443784,
+      "sign_w2pos_late": 0.659405214777404,
+      "sign_w2neg_late": 0.2314460626243618,
+      "sign_at_cross": 0.9965601739941297,
+      "n_cross": 40,
+      "cross_wt": 12.33981038198343,
+      "unreach": 0.0
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "meta": {
+    "steps": 250,
+    "ticks": 1500,
+    "seed": 0,
+    "selftest": false
+  },
+  "R2": {
+    "bptt": 0.9538151747461941,
+    "fd_weights": 0.7968780512817277,
+    "fd_nodepert": 0.8464128951900866,
+    "raf_weights": 0.8082594922032065,
+    "raf_full": 0.8558326999207007
+  },
+  "cov_rel_median": 0.9904124193456318,
+  "cov_rel_frac_ge_025": 1.0,
+  "cov_cos_median": 0.1754689141100487
+}

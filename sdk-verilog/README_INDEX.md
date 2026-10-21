@@ -49,7 +49,23 @@ iverilog -g2012 -o tb.vvp spikeling_resonators.v tb_resonators.v
 vvp tb.vvp
 ```
 
+## RAF on-chip learning rule (newest)
+- `spikeling_raf_learn_model.py` — bit-accurate Python twin of the learner
+  (`RAFLearnCore`, Q14.18, SIGN/signSGD mode).
+- `gen_raf_learn.py` — emits `spikeling_raf_learn.v` + `tb_raf_learn.v` for a
+  given list of per-channel dither frequencies (bakes each channel's resonator
+  constants + DDS increment).
+- `spikeling_raf_learn.v`, `tb_raf_learn.v` — generated: a synthesizable module
+  that **learns** (adjusts scalar params to reduce a scalar loss) with **no
+  backward pass** — resonator bank + DDS dither + velocity-phase sign readout +
+  signSGD update. See `RAF_LEARN.md` for the rule, interface, fixed-point notes,
+  two overflow traps found while building it, cost, and the honest ~10–15%-below-
+  BPTT limit carried from `../research/raf_gradient/`.
+- `test_raf_learn.py` — (1) **bit-parity** Verilog vs Python twin (byte-identical
+  weight trajectories, 0 mismatches / 40 windows) and (2) **convergence** on a
+  quadratic loss (max|param−target| → 0.009 in 200 windows). `iverilog -g2012`.
+
 ## Status
-Functional snapshot, last touched 6/16, **except** the Resonator backend
-above which is new and verified. Compiler here is older than `core/`'s —
-treat `core/` as the source of truth if the two diverge.
+Functional snapshot, last touched 6/16, **except** the Resonator backend and the
+RAF learning rule above, which are new and verified. Compiler here is older than
+`core/`'s — treat `core/` as the source of truth if the two diverge.
