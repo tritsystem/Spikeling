@@ -19,7 +19,27 @@
 #include "spikeling_hw.h"
 
 /* ── Constants ───────────────────────────────────────────────────── */
+/* SAMPLE_RATE is now overridable at compile time (e.g.
+ * `-DSAMPLE_RATE=192000`) instead of hardcoded. Default stays 44100 --
+ * unchanged for every existing build script/user of this WASAPI-loopback
+ * "3D audio proof" engine (it captures SYSTEM OUTPUT via
+ * ma_device_type_loopback, i.e. whatever's already playing on this PC,
+ * not an external microphone -- unrelated in purpose to bat-call
+ * capture, but made configurable here per explicit request so the same
+ * pipeline could in principle be rebuilt for a higher-rate ultrasonic
+ * front-end later).
+ *
+ * NYQUIST NOTE: at the default 44100 Hz, this can only represent audio
+ * up to ~22.05 kHz -- nowhere near the 20-120 kHz range of UK bat
+ * echolocation calls. Overriding to e.g. 250000+ would be needed before
+ * this engine could see bat-range content at all; the actual bat
+ * discrimination network built for this project (Resonator neurons in
+ * the Python/.spk runtime, see ai-apps/bat_species_gate.spk) synthesizes
+ * its own drive signal directly and is NOT limited by this file's rate.
+ */
+#ifndef SAMPLE_RATE
 #define SAMPLE_RATE     44100
+#endif
 #define PI              3.14159265358979323846f
 #define TWO_PI          (2.0f * PI)
 #define DEG2RAD(deg)    ((deg) * PI / 180.0f)
