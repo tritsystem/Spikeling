@@ -53,10 +53,10 @@ typedef struct {
 } Resonator;
 
 /* ── Network dimensions ── */
-#define NEURON_COUNT     0
-#define SYNAPSE_COUNT    0
-#define RESONATOR_COUNT  5
-#define REFRACTORY_MS    0
+#define NEURON_COUNT     3
+#define SYNAPSE_COUNT    2
+#define RESONATOR_COUNT  1
+#define REFRACTORY_MS    400
 #define LEARN_RATE       0.01f
 
 /* ── Neuron table ── */

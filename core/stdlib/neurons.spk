@@ -1,21 +1,40 @@
-# Spikeling Neural Configuration
-# stdlib/neurons.spk — Standard Neuron Library
-# ---------------------------------------------
-# Import this in your .spk files to use named neuron presets.
-# Usage: type=LIF | type=Izhikevich | type=AdEx
+# Spikeling Standard Neuron Library
+# stdlib/neurons.spk
+# ---------------------------------------------------------------------------
+# Reference declarations for every neuron type the runtime supports. Copy a
+# line into your own .spk file and rename it. There is no `import` yet -- this
+# file is a spec you can also compile directly to sanity-check the grammar:
+#     python -m compiler.compiler core/stdlib/neurons.spk
+#
+# Grammar:
+#   neuron <name> threshold=<int> leak=<int> [type=...] [key=value ...]
+# ---------------------------------------------------------------------------
 
-# Leaky Integrate-and-Fire (LIF)
-# The standard workhorse. Simple, fast, biologically plausible.
-# threshold: membrane voltage to fire (mV equivalent)
-# leak:      how fast potential decays per tick (higher = faster decay)
-neuron_type LIF threshold=100 leak=5
+# -- Leaky Integrate-and-Fire (LIF) -----------------------------------------
+# The default workhorse. Event-driven: each stimulate() call leaks the
+# membrane by `leak`, adds the drive, and fires if it crosses `threshold`.
+neuron lif_standard   threshold=100 leak=5 type=LIF
 
-# Izhikevich (regular spiking cortical neuron)
-# More biologically realistic than LIF.
-# Models burst firing, adaptation, and resonance.
-neuron_type Izhikevich threshold=30 leak=2 a=0.02 b=0.2 c=-65 d=8
+# -- Izhikevich (2003) ----------------------------------------------------
+# Two variables (v, u). Real quadratic dynamics + a recovery variable, so it
+# actually bursts and adapts. `preset` picks a cortical firing regime;
+# `gain` maps a .spk drive unit onto the model's current scale (~drive*gain).
+# threshold/leak are still required by the grammar but are unused by the
+# model's own dynamics (kept for C-codegen struct compatibility).
+neuron izh_regular    threshold=30 leak=2 type=Izhikevich preset=regular_spiking gain=0.2
+neuron izh_chattering threshold=30 leak=2 type=Izhikevich preset=chattering gain=0.2
+neuron izh_fastspike  threshold=30 leak=2 type=Izhikevich preset=fast_spiking gain=0.2
+neuron izh_bursting   threshold=30 leak=2 type=Izhikevich preset=intrinsically_bursting gain=0.2
 
-# Adaptive Exponential (AdEx)
-# Best balance of realism and speed.
-# Models spike-frequency adaptation — neuron slows down under sustained input.
-neuron_type AdEx threshold=20 leak=4 delta=2 tau_w=100
+# -- Adaptive Exponential (AdEx / Brette-Gerstner 2005) --------------------
+# Two variables (v, w). The adaptation current w accumulates by `b` on every
+# spike and decays with tau_w, producing spike-frequency adaptation -- the
+# neuron visibly slows down under sustained input. `gain` maps drive onto pA.
+neuron adex_standard    threshold=20 leak=4 type=AdEx gain=8
+neuron adex_strongadapt threshold=20 leak=4 type=AdEx gain=8 b=120
+
+# -- Resonator (damped harmonic oscillator) -------------------------------
+# Frequency-selective detection -- continuously driven via step_resonators(),
+# not pulsed. freq in Hz, damping dimensionless; coupling auto-derived if
+# omitted (see runtime.ResonatorState).
+neuron res_440        type=Resonator freq=440 damping=0.02

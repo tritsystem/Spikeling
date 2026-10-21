@@ -8,7 +8,14 @@ Parses .spk source files and emits:
   - A .c / .h file pair (for production C compilation)
 
 DSL Grammar:
-  neuron <name> threshold=<int> leak=<int> [type=LIF|Izhikevich|AdEx]
+  neuron <name> threshold=<int> leak=<int> [type=LIF|Izhikevich|AdEx] [k=v ...]
+      LIF        : no extra params (the default).
+      Izhikevich : [preset=regular_spiking|chattering|fast_spiking|
+                    intrinsically_bursting] [gain=<float>] [b=<float>]
+      AdEx       : [gain=<float>] [b=<float>]   (b = per-spike adaptation step)
+      Trailing k=v tokens are captured into NeuronDef.params and consumed by
+      runtime/neuron_models.build_model. Unknown keys are ignored.
+  neuron <name> type=Resonator freq=<float> damping=<float> [coupling=<float>]
   connect <src> -> <dst> weight=<float> [delay=<float>]
   action <neuron> -> [<COMMAND>]
   refractory=<int>ms
@@ -49,6 +56,10 @@ class NeuronDef:
     freq_hz: Optional[float] = None
     damping: Optional[float] = None
     coupling: Optional[float] = None
+    # Trailing `key=value` tokens from the `neuron` line, minus `type=`
+    # (e.g. `preset=chattering gain=0.2` for an Izhikevich neuron). Empty
+    # for a plain LIF neuron -- see runtime/neuron_models.build_model.
+    params: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -82,7 +93,13 @@ class SpikelingAST:
 class SpikelingParser:
     """Tokenises and parses a .spk source string into a SpikelingAST."""
 
-    NEURON_RE     = re.compile(r"neuron\s+(\w+)\s+threshold=(\d+)\s+leak=(\d+)(?:\s+type=(\w+))?")
+    # Trailing group 4 captures every `key=value` token after leak= (including
+    # `type=`), so an Izhikevich/AdEx neuron can carry `preset=`, `gain=` etc.
+    # A plain `neuron X threshold=1 leak=1` or `... type=LIF` leaves group 4
+    # empty / `type=LIF` only -- byte-identical NeuronDef to before this line
+    # was extended. `[^\s#]+` stops at an inline `# comment` (which .match
+    # silently dropped before and still does).
+    NEURON_RE     = re.compile(r"neuron\s+(\w+)\s+threshold=(\d+)\s+leak=(\d+)((?:\s+\w+=[^\s#]+)*)")
     # Resonator neurons use a different parameter set (no threshold/leak --
     # they're driven continuously, not pulsed): freq_hz + damping, with an
     # optional explicit coupling override (auto-derived from freq if omitted,
@@ -110,6 +127,17 @@ class SpikelingParser:
     REFRACTORY_RE = re.compile(r"refractory=(\d+)ms")
     LEARN_RE      = re.compile(r"learn=(\w+)\s+rate=([\d.]+)")
 
+    @staticmethod
+    def _parse_kv(blob: Optional[str]) -> dict:
+        """`' type=Izhikevich preset=chattering gain=0.2'` -> dict. Values stay
+        strings; the runtime's build_model coerces the numeric ones."""
+        out: dict = {}
+        for tok in (blob or "").split():
+            if "=" in tok:
+                k, v = tok.split("=", 1)
+                out[k] = v
+        return out
+
     def parse(self, source: str) -> SpikelingAST:
         ast = SpikelingAST()
         errors = []
@@ -122,12 +150,15 @@ class SpikelingParser:
             if line.startswith("neuron"):
                 m = self.NEURON_RE.match(line)
                 if m:
-                    name, thresh, leak, ntype = m.groups()
+                    name, thresh, leak, rest = m.groups()
+                    params = self._parse_kv(rest)
+                    ntype = params.pop("type", "LIF")
                     ast.neurons.append(NeuronDef(
                         name=name,
                         threshold=int(thresh),
                         leak=int(leak),
-                        neuron_type=ntype or "LIF"
+                        neuron_type=ntype,
+                        params=params,
                     ))
                 else:
                     rm = self.RESONATOR_RE.match(line)
@@ -498,6 +529,35 @@ class CCodeGenerator:
         print(f"[compiler] emitted {h_path}")
         print(f"[compiler] emitted {c_path}")
         return h_path, c_path
+
+    def generate_model_sim(self, ast: "SpikelingAST", neuron_name: str,
+                           drive: float, total_ms: float,
+                           dt_ms: float = 0.5, output_dir: str = ".") -> str:
+        """Emit a standalone `spikeling_model_sim.c` that runs ONE Izhikevich/
+        AdEx neuron under constant `drive` for `total_ms` and prints its spike
+        times (ms), one per line. Used by the cross-backend conformance harness
+        to prove the generated C matches the Python runtime spike-for-spike.
+
+        This is intentionally separate from generate()'s spikeling_hw.c/.h --
+        that hardware path stays LIF-only and is not touched here.
+        """
+        from runtime.neuron_models import MODELS, build_model, emit_model_sim_c
+
+        ndef = next((n for n in ast.neurons if n.name == neuron_name), None)
+        if ndef is None:
+            raise ValueError(f"no neuron '{neuron_name}' in this network")
+        if ndef.neuron_type not in MODELS:
+            raise ValueError(
+                f"neuron '{neuron_name}' is type={ndef.neuron_type}; "
+                f"generate_model_sim only handles {sorted(MODELS)}")
+
+        model = build_model(ndef.neuron_type, ndef.params, dt_ms=dt_ms)
+        src = emit_model_sim_c(model, neuron_name, drive, total_ms)
+        path = os.path.join(output_dir, "spikeling_model_sim.c")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(src)
+        print(f"[compiler] emitted {path}  ({ndef.neuron_type} '{neuron_name}')")
+        return path
 
 
 # ─────────────────────────────────────────────

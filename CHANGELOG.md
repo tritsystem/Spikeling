@@ -5,7 +5,34 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-_Nothing yet._
+### Added
+
+- **`type=Izhikevich` and `type=AdEx` are now real neuron models**, not
+  relabelled LIF. `core/runtime/neuron_models.py` ports the verified
+  `IzhikevichNeuron` / `AdExNeuron` dynamics from `pyspike_neuron_models.py`
+  into the `.spk` runtime and the C code generator. The `neuron` grammar
+  accepts trailing `key=value` params (`preset=chattering`, `gain=0.2`,
+  `b=120`, …). `SpikelingRuntime(ast, dt_ms=1.0)` sets the model tick length.
+- `CCodeGenerator.generate_model_sim()` — emits a standalone
+  `spikeling_model_sim.c` for one model neuron under constant drive, used by
+  the new cross-backend conformance harness.
+- `core/tests/test_neuron_model_conformance.py` — four pre-registered
+  acceptance bars (LIF zero-regression, Izhikevich burst fidelity, AdEx
+  adaptation fidelity, Python↔generated-C spike-for-spike parity). All MET;
+  see `core/PRE_REGISTRATION_neuron_models.md` / `core/RESULTS_neuron_models.md`.
+- `core/examples/izhikevich_chattering.spk`, `core/examples/adex_adaptation.spk`.
+
+### Fixed
+
+- `core/stdlib/neurons.spk` used a `neuron_type …` syntax the parser never
+  accepted (the file could not be compiled). Rewritten to real grammar.
+
+### Unchanged (verified)
+
+- The LIF `stimulate()` / `_fire()` / `_deliver_spike()` paths and
+  `CCodeGenerator.generate()` output are byte-identical — every model branch
+  is guarded `if n.model is not None`. Proven by golden comparison against a
+  pre-change baseline.
 
 ## [1.0.2] — 2026-09-06
 

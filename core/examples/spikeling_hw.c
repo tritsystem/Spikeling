@@ -4,35 +4,32 @@
 
 /* ── Neuron definitions ── */
 Neuron neurons[NEURON_COUNT] = {
-    /* none */
+    {"LeftMic", 110, 5, 0.0f, 0.0f, 0},
+    {"RightMic", 110, 5, 0.0f, 0.0f, 0},
+    {"Motor", 80, 3, 0.0f, 0.0f, 0}
 };
 
 /* ── Synapse definitions ── */
 Synapse synapses[SYNAPSE_COUNT] = {
-    /* none */
+    {0, 2, 0.8f},
+    {1, 2, 0.8f}
 };
 
 /* ── Action dispatch table ── */
 static const char* action_table[NEURON_COUNT] = {
-    /* none */
+    "SOUND_LOCALIZED_LEFT",
+    "SOUND_LOCALIZED_RIGHT",
+    "MOTOR_FIRE"
 };
 
 /* ── Resonator definitions ── */
 Resonator resonators[RESONATOR_COUNT] = {
-    {"Target110", 110.0f, 0.02f, 191.07554120509f, 0.0008f, 0.00024f, 0.0025f, 0.0f, 0.0f, 0.0f},
-    {"Target220", 220.0f, 0.02f, 764.30216482036f, 0.0008f, 0.00024f, 0.0025f, 0.0f, 0.0f, 0.0f},
-    {"Target440", 440.0f, 0.02f, 3057.20865928144f, 0.0008f, 0.00024f, 0.0025f, 0.0f, 0.0f, 0.0f},
-    {"Target880", 880.0f, 0.02f, 12228.83463712576f, 0.0008f, 0.00024f, 0.0025f, 0.0f, 0.0f, 0.0f},
-    {"Target1760", 1760.0f, 0.02f, 48915.33854850304f, 0.0008f, 0.00024f, 0.0025f, 0.0f, 0.0f, 0.0f}
+    {"_none_", 1.0f, 1.0f, 0.0f, 1e9f, 1e9f, 1.0f, 0.0f, 0.0f, 0.0f}
 };
 
 /* ── Resonator action dispatch table ── */
 static const char* resonator_action_table[RESONATOR_COUNT] = {
-    "TONE_110HZ",
-    "TONE_220HZ",
-    "TONE_440HZ",
-    "TONE_880HZ",
-    "TONE_1760HZ"
+    NULL
 };
 
 /* ── Spike tick ── */

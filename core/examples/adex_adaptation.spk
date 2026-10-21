@@ -1,0 +1,16 @@
+# adex_adaptation.spk
+# -------------------
+# One AdEx neuron under constant drive: inter-spike intervals GROW over time
+# as the adaptation current w builds up -- spike-frequency adaptation, which
+# a LIF neuron cannot produce. The .spk-level reproduction of
+# pyspike_neuron_models.py's _selftest_adex_shows_spike_frequency_adaptation().
+# See core/tests/test_neuron_model_conformance.py (Bar 3).
+#
+#   ast = compile_file("core/examples/adex_adaptation.spk")
+#   rt  = SpikelingRuntime(ast, dt_ms=0.1)
+#   for i in range(5000):          # 500 ms at dt=0.1
+#       rt.stimulate("a", i*0.1, drive=50.0)
+
+neuron a threshold=20 leak=4 type=AdEx gain=8.0
+
+action a -> [ADEX_SPIKE]

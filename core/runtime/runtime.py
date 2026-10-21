@@ -84,6 +84,16 @@ class NeuronState:
     membrane_potential: float = 0.0
     last_spike_time:    float = float("-inf")
     fire_count:         int   = 0
+    # First-class neuron models (Izhikevich / AdEx). LIF and Resonator leave
+    # these at their defaults and the pre-existing code paths run untouched.
+    # `model` is an IzhikevichModel/AdExModel instance (see
+    # runtime/neuron_models.py); `model_state` is its mutable state dict
+    # ({"v","u"} or {"v","w"}); `syn_current` accumulates synaptic charge
+    # delivered by _deliver_spike() between the model's own step() calls
+    # (a model takes input as a current I, not a direct membrane bump).
+    model:              object = None
+    model_state:        dict   = None
+    syn_current:        float  = 0.0
 
 
 @dataclass
@@ -273,8 +283,15 @@ class SpikelingRuntime:
                 Register your own callbacks with register_handler().
     """
 
-    def __init__(self, ast):
+    def __init__(self, ast, dt_ms: float = 1.0):
         from compiler.compiler import SpikelingAST  # avoid circular at top level
+
+        # Tick length for model-based neurons (Izhikevich / AdEx). LIF and
+        # Resonator do not use it -- LIF is event-driven (flat leak per
+        # stimulate() call), Resonator carries its own dt into step(). Baked
+        # into each model so the Python runtime and the generated C agree on
+        # one dt (see runtime/neuron_models.build_model).
+        self.dt_ms: float = float(dt_ms)
 
         self.neurons: dict[str, NeuronState]       = {}
         self.resonators: dict[str, ResonatorState] = {}
@@ -297,6 +314,7 @@ class SpikelingRuntime:
         # Build neuron states -- LIF/Izhikevich/AdEx go in self.neurons,
         # Resonator neurons go in self.resonators (different dynamics:
         # continuously driven, not pulsed/refractory).
+        from runtime.neuron_models import MODELS, build_model  # local: no circular
         for n in ast.neurons:
             if n.neuron_type == "Resonator":
                 coupling = n.coupling
@@ -309,6 +327,16 @@ class SpikelingRuntime:
                     damping  = n.damping,
                     coupling = coupling,
                 )
+            elif n.neuron_type in MODELS:
+                # Izhikevich / AdEx -- real two-variable dynamics, ported
+                # verbatim from the verified pyspike_neuron_models.py.
+                model = build_model(n.neuron_type, getattr(n, "params", None),
+                                    dt_ms=self.dt_ms)
+                st = NeuronState(name=n.name, threshold=float(n.threshold),
+                                 leak=float(n.leak), model=model)
+                st.model_state = model.reset()
+                st.membrane_potential = st.model_state["v"]
+                self.neurons[n.name] = st
             else:
                 self.neurons[n.name] = NeuronState(
                     name      = n.name,
@@ -359,6 +387,18 @@ class SpikelingRuntime:
         if elapsed < self.refractory_ms:
             return None
 
+        # ── Model-based neuron (Izhikevich / AdEx) ──
+        # Integrate the real two-variable dynamics for one tick. The model
+        # takes a CURRENT: this call's `drive` plus any synaptic charge
+        # accumulated since its last step. The model self-resets v on a
+        # spike, so _fire() must not zero membrane_potential for it.
+        if n.model is not None:
+            total_drive = drive + n.syn_current
+            n.syn_current = 0.0
+            n.model_state, fired = n.model.step(n.model_state, total_drive)
+            n.membrane_potential = n.model_state["v"]
+            return self._fire(n, current_time_ms) if fired else None
+
         # Leak toward REST (0) from either side: positive potentials decay down
         # exactly as before; negative ones (from inhibition) recover UP toward 0
         # instead of being snapped to 0, so hyperpolarization fades gradually.
@@ -384,7 +424,17 @@ class SpikelingRuntime:
         """
         self._flush_pending_deliveries(current_time_ms)
         for n in self.neurons.values():
-            n.membrane_potential = _leak_toward_zero(n.membrane_potential, n.leak)
+            if n.model is not None:
+                # Model neuron: advance its real dynamics one tick on whatever
+                # synaptic current has arrived (no external drive here).
+                total = n.syn_current
+                n.syn_current = 0.0
+                n.model_state, fired = n.model.step(n.model_state, total)
+                n.membrane_potential = n.model_state["v"]
+                if fired:
+                    self._fire(n, current_time_ms)
+            else:
+                n.membrane_potential = _leak_toward_zero(n.membrane_potential, n.leak)
 
     def step_resonators(self, drive: float, dt: float, current_time_ms: float = 0.0) -> list[str]:
         """
@@ -417,7 +467,11 @@ class SpikelingRuntime:
         cascade through hidden/output layers from a single stimulus.
         `_depth` guards against runaway cascades in cyclic networks.
         """
-        n.membrane_potential = 0.0
+        # Model neurons (Izhikevich / AdEx) self-reset v inside their own
+        # step() (v <- c, or v <- Vreset) -- zeroing it here would clobber
+        # the post-spike voltage the model needs. LIF resets to 0 as before.
+        if n.model is None:
+            n.membrane_potential = 0.0
         n.last_spike_time    = t
         n.fire_count        += 1
         self._spike_log.append((t, n.name))
@@ -462,6 +516,20 @@ class SpikelingRuntime:
         elapsed    = downstream_fire_time - downstream.last_spike_time
         if elapsed < self.refractory_ms:
             return  # downstream is refractory-locked
+
+        # Model neuron (Izhikevich / AdEx): a synapse delivers a CURRENT, not
+        # a direct membrane bump. Accumulate it; the model consumes it on its
+        # next step() and fires (or not) from its own dynamics -- so there is
+        # no synchronous cascade _fire() here (it happens one tick later,
+        # which is the correct causal ordering for an integrated model).
+        # Inhibitory (negative weight) charge is allowed through unclamped;
+        # the model's own dynamics bound v.
+        if downstream.model is not None:
+            downstream.syn_current += syn.weight * 50.0
+            if self.learner:
+                dt = source_fire_time - downstream.last_spike_time
+                syn.weight = self.learner.update(syn, dt)
+            return
 
         # INHIBITION: a negative weight subtracts. We let the target
         # go NEGATIVE (hyperpolarize) -- that's what gives inhibition

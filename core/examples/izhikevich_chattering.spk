@@ -1,0 +1,21 @@
+# izhikevich_chattering.spk
+# -------------------------
+# Two Izhikevich neurons under the SAME constant drive: a regular-spiking
+# cell fires evenly, a chattering cell fires in tight high-frequency bursts.
+# This is the .spk-level reproduction of pyspike_neuron_models.py's
+# _selftest_izhikevich_chattering_bursts() -- see
+# core/tests/test_neuron_model_conformance.py (Bar 2).
+#
+#   from compiler.compiler import compile_file
+#   from runtime.runtime import SpikelingRuntime
+#   ast = compile_file("core/examples/izhikevich_chattering.spk")
+#   rt  = SpikelingRuntime(ast, dt_ms=0.5)
+#   for i in range(600):            # 300 ms at dt=0.5
+#       rt.stimulate("rs", i*0.5, drive=10.0)
+#       rt.stimulate("ch", i*0.5, drive=10.0)
+
+neuron rs threshold=30 leak=2 type=Izhikevich preset=regular_spiking gain=1.0
+neuron ch threshold=30 leak=2 type=Izhikevich preset=chattering gain=1.0
+
+action rs -> [RS_SPIKE]
+action ch -> [CH_SPIKE]

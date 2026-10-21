@@ -47,6 +47,8 @@ learn=STDP rate=0.01
 | Directive | Description |
 |---|---|
 | `neuron <name> threshold=<int> leak=<int> [type=LIF]` | Define a neuron |
+| `neuron <name> threshold=<int> leak=<int> type=Izhikevich [preset=<regime>] [gain=<float>]` | Two-variable cortical model (bursts, adaptation) |
+| `neuron <name> threshold=<int> leak=<int> type=AdEx [gain=<float>] [b=<float>]` | Adaptive-exponential model (spike-frequency adaptation) |
 | `connect <src> -> <dst> weight=<float>` | Add a weighted synapse |
 | `action <neuron> -> [<COMMAND>]` | Map a spike to a named command |
 | `refractory=<int>ms` | Global refractory period |
@@ -145,8 +147,15 @@ When a neuron fires, it walks all synapses where it is the source and adds `weig
 
 ## Roadmap
 
-- [ ] `type=Izhikevich` runtime implementation
-- [ ] `type=AdEx` runtime implementation  
+- [x] `type=Izhikevich` runtime implementation — real (v, u) dynamics, ported
+      from the verified `pyspike_neuron_models.py`; presets `regular_spiking` /
+      `chattering` / `fast_spiking` / `intrinsically_bursting`. See
+      `core/runtime/neuron_models.py`, `core/PRE_REGISTRATION_neuron_models.md`.
+- [x] `type=AdEx` runtime implementation — real (v, w) dynamics with
+      spike-frequency adaptation; same reference + pre-registration.
+      Cross-backend (Python vs generated-C) parity proven by
+      `core/tests/test_neuron_model_conformance.py`.
+- [ ] Verilog / GDScript backends for Izhikevich & AdEx
 - [ ] Multi-layer network examples
 - [ ] Audio input driver (mic → spike encoder)
 - [ ] Spike train visualiser
