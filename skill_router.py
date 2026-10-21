@@ -21,6 +21,8 @@ LEAK = 1.0
 RULES = {
     "oss-bug-audit":            [(70, r"\b(audit|bug|bugs|pr|pull request|contribut\w*|upstream|fix)\b.*\b(library|repo|transformers|pytorch|torch|sklearn|scikit|snntorch|sinabs|lightning|numpy|scipy|open source|oss)\b"),
                                  (70, r"\b(transformers|pytorch|scikit-learn|snntorch|sinabs|tenns-core)\b.*\b(bug|fix|pr|issue)\b")],
+    "bounty-bug-hunt":          [(75, r"\b(bounty|bounties|bug bounty|paid (vuln|vulnerability|security))\b"),
+                                 (55, r"\barch.?finder\b.*\b(bug|hunt|find|bounty)\b")],
     "oss-status-precision":     [(60, r"\b(contribut\w*|merged|pr status|landed|accepted)\b")],
     "spikeling-os-milestone":   [(75, r"\b(spikeling.?os|milestone|cc\.elf|subset.?c|kernel)\b")],
     "qemu-boot-this-pc":        [(70, r"\b(qemu|boot|whpx|bios\.img)\b"),
@@ -46,12 +48,15 @@ RULES = {
                                  (30, r"\b(rung|milestone|finding|study)\b")],
     "commit-discipline":        [(45, r"\b(commit|push|branch|git)\b"),
                                  (30, r"\b(pr|pull request|milestone)\b")],
+    "technical-writing-protocol":[(65, r"\b(pr description|blog post|write.?up|writeup|retraction|issue comment)\b.*\b(write|draft|post|publish)\b"),
+                                 (65, r"\b(draft|write|post)\b.*\b(pr description|blog|writeup|announcement)\b")],
 }
 
 # secondary skills that fire whenever a given primary skill fires (code cascade,
 # not a text match -- the SNN equivalent is a fixed excitatory synapse)
 CASCADE = {
-    "oss-bug-audit":          ["oss-status-precision", "commit-discipline"],
+    "oss-bug-audit":          ["oss-status-precision", "commit-discipline", "technical-writing-protocol"],
+    "bounty-bug-hunt":        ["oss-status-precision", "spike-vault-log"],
     "spikeling-os-milestone": ["qemu-boot-this-pc", "commit-discipline"],
     "research-rung":          ["research-index-check", "cross-substrate-check", "spike-vault-log"],
     "new-research-project":   ["research-index-check"],

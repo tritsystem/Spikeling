@@ -439,11 +439,25 @@ class SpikingPipeline:
         # is built into the topology from here on, driven by S_Complex (the
         # same "extra work is needed" signal PreRegister/Reviewer use) --
         # no live spawn required, it's just part of the roster now.
-        for name in promoted_specialists():
+        promo_history = load_specialist_history()
+        for name in promoted_specialists(promo_history):
             if name in specialists:
                 continue   # already a fixed name somehow -- never double-wire
             ref = net.neuron(name, threshold=50, leak=2)
             specialists[name] = ref
+            # A promoted specialist must keep the tool-access tier + task
+            # framing it earned as a dynamic spawn. Seed _specialist_tasks
+            # from the subtask persisted at verdict time
+            # (_record_specialist_outcomes) so _run_real_agent() resolves its
+            # real tier via tool_tier_for_subtask() instead of falling through
+            # to CLAUDE_CODE_TOOLS, and _agent_task() frames it on its own
+            # subtask instead of self.task. A pre-existing history record with
+            # no "last_subtask" (written before this field existed) just
+            # leaves it out -- same behavior as before, no regression, and it
+            # self-heals the next time that specialist is spawned + judged.
+            promo_subtask = promo_history.get(name, {}).get("last_subtask", "")
+            if promo_subtask:
+                self._specialist_tasks[name] = promo_subtask
             S_Complex.to(ref, weight=1.2)
             ref.to(specialists["Reviewer"], weight=1.2)
             net.action(ref)(self._make_handler(name))
@@ -529,6 +543,21 @@ class SpikingPipeline:
             # how the diagnostic counters are named/shaped).
             rec = history.setdefault(name, {"spawned": 0, "judged_useful": 0, "unnecessary": 0, "score": 0})
             rec["spawned"] += 1
+            # Persist the subtask this specialist was spawned to do. If it is
+            # later promoted into the fixed roster (_build_brain), this is the
+            # ONLY surviving record of what it's for -- and _run_real_agent()
+            # / _agent_task() both gate the tool-tier lockdown and the
+            # subtask framing on `neuron in self._specialist_tasks`, which a
+            # promoted specialist otherwise misses (it's only ever populated
+            # on the live-spawn path). Without this it would silently run
+            # with the full CLAUDE_CODE_TOOLS set on the top-level task --
+            # the exact tool-access mismatch tool_tier_for_subtask() exists
+            # to prevent, reintroduced via promotion. Same bug shape as the
+            # 2026-09-06 live-mode Resonator misrouting: a discriminator
+            # honored on the incremental path, dropped on the static one.
+            subtask = self._specialist_tasks.get(name)
+            if subtask:
+                rec["last_subtask"] = subtask
             verdict = verdicts.get(name.lower())
             if verdict == "useful":
                 rec["judged_useful"] += 1

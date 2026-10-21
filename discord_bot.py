@@ -208,6 +208,33 @@ async def on_message(message):
             await message.channel.send("nah, wrong or expired code, bro -- still locked. (codes change every 30s)")
         return
 
+    # bounty-autopilot direct control: `!hunt status|reportable|scan <repo>|deep <repo>|dismiss <id>`
+    if text.lower().startswith("!hunt"):
+        try:
+            import sys as _sys
+            _ap = r"C:\Users\gbran\OneDrive\Documents\bounty-autopilot"
+            if _ap not in _sys.path: _sys.path.insert(0, _ap)
+            import bot_bridge
+            reply = bot_bridge.handle_command(text)
+        except Exception as e:
+            reply = f"hunt error, bro: {e}"
+        await message.channel.send(reply or "(no output)")
+        return
+
+    # mastermind (read-only memory over Claude memory + vault + method + agents + autopilot):
+    # `!mm` | `!mm find <words>` | `!mm check <action>` | `!mm sources` | `!mm protocols`
+    if text.lower().startswith("!mm"):
+        try:
+            import sys as _sys
+            _mm = r"C:\Users\gbran\OneDrive\Documents\mastermind"
+            if _mm not in _sys.path: _sys.path.insert(0, _mm)
+            import mm_bridge
+            reply = await asyncio.to_thread(mm_bridge.handle_command, text)
+        except Exception as e:
+            reply = f"mastermind error, bro: {e}"
+        await message.channel.send(reply or "(no output)")
+        return
+
     async with message.channel.typing():
         global _current_channel, _event_loop
         _responses.clear()
